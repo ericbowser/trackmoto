@@ -9,6 +9,8 @@ export type ReceiptKind = 'expense' | 'document';
 export type Receipt = {
   id: string;
   imageUri: string;
+  mimeType?: string;
+  fileName?: string;
   amount: string;
   category: string;
   kind: ReceiptKind;

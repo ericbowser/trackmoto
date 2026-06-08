@@ -6,6 +6,7 @@ import {
 import { useTheme } from '@/context/ThemeContext';
 import { useMiles } from '@/hooks/useMiles';
 import { sanitizeMilesInput, parseMilesInput } from '@/utils/input';
+import { openGoogleMaps } from '@/utils/maps';
 import ThemePicker from '@/components/ThemePicker';
 import type { MileEntry } from '@/types';
 
@@ -57,6 +58,14 @@ export default function MilesScreen() {
     ]);
   };
 
+  const handleOpenMaps = async () => {
+    try {
+      await openGoogleMaps();
+    } catch {
+      Alert.alert('Could not open Maps', 'Install Google Maps or try again.');
+    }
+  };
+
   return (
     <View style={[styles.screen, { backgroundColor: theme.bg }]}>
 
@@ -83,6 +92,18 @@ export default function MilesScreen() {
           </Text>
         )}
       </View>
+
+      <TouchableOpacity
+        style={[styles.mapsBtn, { backgroundColor: theme.surface }]}
+        onPress={handleOpenMaps}
+        activeOpacity={0.8}>
+        <Text style={styles.mapsBtnIcon}>🗺️</Text>
+        <View style={styles.mapsBtnText}>
+          <Text style={[styles.mapsBtnTitle, { color: theme.text }]}>Open Google Maps</Text>
+          <Text style={[styles.mapsBtnHint, { color: theme.muted }]}>Navigation & directions</Text>
+        </View>
+        <Text style={[styles.mapsBtnChevron, { color: theme.muted }]}>›</Text>
+      </TouchableOpacity>
 
       <View style={styles.inputRow}>
         <View style={[
@@ -172,6 +193,16 @@ const styles = StyleSheet.create({
   totalLabel:    { fontSize: 14 },
   totalMiles:    { fontSize: 64, fontWeight: 'bold' },
   totalHint:     { fontSize: 13, marginTop: 8 },
+  mapsBtn:       {
+    flexDirection: 'row', alignItems: 'center',
+    marginHorizontal: 16, marginBottom: 12,
+    padding: 16, borderRadius: 12, gap: 12,
+  },
+  mapsBtnIcon:     { fontSize: 28 },
+  mapsBtnText:     { flex: 1 },
+  mapsBtnTitle:    { fontSize: 16, fontWeight: '700' },
+  mapsBtnHint:     { fontSize: 12, marginTop: 2 },
+  mapsBtnChevron:  { fontSize: 24, fontWeight: '300' },
   inputRow:      { flexDirection: 'row', margin: 16, gap: 12 },
   inputWrap:     { flex: 1, borderRadius: 12, borderWidth: 2, overflow: 'hidden' },
   inputLive:     { fontSize: 28, fontWeight: 'bold', paddingHorizontal: 14, paddingTop: 12, paddingBottom: 4 },

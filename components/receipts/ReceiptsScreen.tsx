@@ -12,6 +12,13 @@ import {
   isLegalCategory,
 } from '@/constants/app';
 import ThemePicker from '@/components/ThemePicker';
+import {
+  pickFromFiles,
+  persistDocument,
+  openDocumentExternally,
+  isImageMime,
+  type PickedDocument,
+} from '@/utils/documents';
 import type { Receipt } from '@/types';
 
 type Filter = 'all' | 'expense' | 'legal';
@@ -21,13 +28,18 @@ const QUICK_ACCESS_ICONS: Record<string, string> = {
   Insurance: '🛡️',
 };
 
+function receiptIsImage(item: Receipt): boolean {
+  if (item.mimeType) return isImageMime(item.mimeType);
+  return /\.(jpe?g|png|gif|webp|heic)$/i.test(item.imageUri);
+}
+
 export default function ReceiptsScreen() {
   const { theme } = useTheme();
   const { receipts, addReceipt, deleteReceipt, getLatestByCategory } = useReceipts();
 
   const [filter, setFilter] = useState<Filter>('all');
   const [addModalVisible, setAddModalVisible] = useState(false);
-  const [imageUri, setImageUri] = useState('');
+  const [selectedDoc, setSelectedDoc] = useState<PickedDocument | null>(null);
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<string>(CATEGORY_GROUPS[0].categories[0]);
   const [zoomUri, setZoomUri] = useState('');
@@ -41,23 +53,35 @@ export default function ReceiptsScreen() {
     return receipts;
   }, [receipts, filter]);
 
-  const openZoom = (uri: string, title: string) => {
+  const openImageZoom = (uri: string, title: string) => {
     setZoomUri(uri);
     setZoomTitle(title);
     setZoomVisible(true);
   };
 
+  const viewDocument = async (item: Receipt) => {
+    if (receiptIsImage(item)) {
+      openImageZoom(item.imageUri, item.category);
+      return;
+    }
+    try {
+      await openDocumentExternally(item.imageUri, item.mimeType);
+    } catch {
+      Alert.alert('Cannot open file', 'Try re-adding the document.');
+    }
+  };
+
   const openAddModal = (presetCategory?: string) => {
-    setImageUri('');
+    setSelectedDoc(null);
     setAmount('');
     setCategory(presetCategory ?? CATEGORY_GROUPS[0].categories[0]);
     setAddModalVisible(true);
   };
 
-  const handleQuickAccess = (cat: string) => {
+  const handleQuickAccess = async (cat: string) => {
     const doc = getLatestByCategory(cat);
     if (doc?.imageUri) {
-      openZoom(doc.imageUri, cat);
+      await viewDocument(doc);
       return;
     }
     Alert.alert(
@@ -72,21 +96,61 @@ export default function ReceiptsScreen() {
 
   const takePhoto = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) { Alert.alert('Camera permission needed'); return; }
+    if (!permission.granted) {
+      Alert.alert('Camera permission needed');
+      return;
+    }
     const result = await ImagePicker.launchCameraAsync({ quality: 0.85 });
-    if (!result.canceled) setImageUri(result.assets[0].uri);
+    if (result.canceled || !result.assets[0]) return;
+    try {
+      const asset = result.assets[0];
+      const doc = await persistDocument(
+        asset.uri,
+        asset.mimeType ?? 'image/jpeg',
+        `camera_${Date.now()}.jpg`,
+      );
+      setSelectedDoc(doc);
+    } catch {
+      Alert.alert('Save failed', 'Could not save the photo.');
+    }
   };
 
   const pickImage = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Photo access needed', 'Allow photo access in Settings to pick images from your gallery.');
+      return;
+    }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       quality: 0.85,
     });
-    if (!result.canceled) setImageUri(result.assets[0].uri);
+    if (result.canceled || !result.assets[0]) return;
+    try {
+      const asset = result.assets[0];
+      const doc = await persistDocument(
+        asset.uri,
+        asset.mimeType ?? 'image/jpeg',
+        asset.fileName ?? `gallery_${Date.now()}.jpg`,
+      );
+      setSelectedDoc(doc);
+    } catch {
+      Alert.alert('Save failed', 'Could not import the image.');
+    }
   };
 
-  const rePickImage = () => {
-    Alert.alert('Change Photo', 'Choose a source', [
+  const pickFile = async () => {
+    try {
+      const doc = await pickFromFiles();
+      if (doc) setSelectedDoc(doc);
+    } catch {
+      Alert.alert('File picker failed', 'Could not access files on your device.');
+    }
+  };
+
+  const changeDocument = () => {
+    Alert.alert('Change document', 'Choose a source', [
+      { text: 'Files', onPress: pickFile },
       { text: 'Camera', onPress: takePhoto },
       { text: 'Gallery', onPress: pickImage },
       { text: 'Cancel', style: 'cancel' },
@@ -96,13 +160,19 @@ export default function ReceiptsScreen() {
   const handleSave = () => {
     const trimmed = amount.trim();
     if (trimmed !== '' && isNaN(Number(trimmed))) return;
-    if (!imageUri) {
-      Alert.alert('Photo required', 'Add a photo of the receipt or document before saving.');
+    if (!selectedDoc) {
+      Alert.alert('Document required', 'Add a photo or file before saving.');
       return;
     }
-    addReceipt({ imageUri, amount: trimmed, category });
+    addReceipt({
+      imageUri: selectedDoc.uri,
+      mimeType: selectedDoc.mimeType,
+      fileName: selectedDoc.fileName,
+      amount: trimmed,
+      category,
+    });
     setAddModalVisible(false);
-    setImageUri('');
+    setSelectedDoc(null);
     setAmount('');
     setCategory(CATEGORY_GROUPS[0].categories[0]);
   };
@@ -114,26 +184,47 @@ export default function ReceiptsScreen() {
     ]);
   };
 
+  const DocThumb = ({ item, size = 'list' }: { item: Receipt; size?: 'list' | 'quick' }) => {
+    const isImage = receiptIsImage(item);
+    const thumbStyle = size === 'quick' ? styles.quickThumb : styles.receiptThumb;
+    const boxStyle = size === 'quick' ? styles.quickIconBox : styles.noImage;
+    const wrapStyle = size === 'list' ? styles.thumbWrap : undefined;
+
+    if (isImage && item.imageUri) {
+      return (
+        <View style={wrapStyle}>
+          <Image source={{ uri: item.imageUri }} style={thumbStyle} />
+        </View>
+      );
+    }
+    return (
+      <View style={wrapStyle}>
+        <View style={[boxStyle, { backgroundColor: theme.bg }]}>
+          <Text style={{ fontSize: size === 'quick' ? 28 : 22 }}>📄</Text>
+          {size === 'list' && item.fileName ? (
+            <Text style={[styles.pdfLabel, { color: theme.muted }]} numberOfLines={1}>PDF</Text>
+          ) : null}
+        </View>
+      </View>
+    );
+  };
+
   const renderReceipt = ({ item }: { item: Receipt }) => (
     <View style={[styles.receiptCard, { backgroundColor: theme.surface }]}>
-      {item.imageUri ? (
-        <TouchableOpacity onPress={() => openZoom(item.imageUri, item.category)}>
-          <Image source={{ uri: item.imageUri }} style={styles.receiptThumb} />
-        </TouchableOpacity>
-      ) : (
-        <View style={[styles.noImage, { backgroundColor: theme.bg }]}>
-          <Text style={{ fontSize: 24 }}>📄</Text>
-        </View>
-      )}
-      <View style={styles.receiptInfo}>
+      <TouchableOpacity onPress={() => viewDocument(item)}>
+        <DocThumb item={item} />
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.receiptInfo} onPress={() => viewDocument(item)}>
         <Text style={[styles.receiptCategory, { color: theme.accent }]}>{item.category}</Text>
         {item.kind === 'expense' && item.amount ? (
           <Text style={[styles.receiptAmount, { color: theme.text }]}>${item.amount}</Text>
         ) : (
-          <Text style={[styles.receiptDocLabel, { color: theme.text }]}>Document on file</Text>
+          <Text style={[styles.receiptDocLabel, { color: theme.text }]}>
+            {item.fileName ?? 'Document on file'}
+          </Text>
         )}
         <Text style={[styles.receiptDate, { color: theme.muted }]}>{item.date}</Text>
-      </View>
+      </TouchableOpacity>
       <TouchableOpacity
         style={[styles.deleteBtn, { backgroundColor: theme.accent }]}
         onPress={() => confirmDelete(item.id)}>
@@ -147,7 +238,7 @@ export default function ReceiptsScreen() {
       <View style={[styles.quickAccessSection, { backgroundColor: theme.surface }]}>
         <Text style={[styles.quickAccessTitle, { color: theme.text }]}>Roadside quick access</Text>
         <Text style={[styles.quickAccessHint, { color: theme.muted }]}>
-          Tap to show registration or insurance full screen
+          Tap registration or insurance to view instantly
         </Text>
         <View style={styles.quickAccessRow}>
           {QUICK_ACCESS_CATEGORIES.map(cat => {
@@ -161,8 +252,8 @@ export default function ReceiptsScreen() {
                   { backgroundColor: theme.bg, borderColor: hasDoc ? theme.accent : theme.muted + '44' },
                 ]}
                 onPress={() => handleQuickAccess(cat)}>
-                {hasDoc && doc?.imageUri ? (
-                  <Image source={{ uri: doc.imageUri }} style={styles.quickThumb} />
+                {hasDoc && doc ? (
+                  <DocThumb item={doc} size="quick" />
                 ) : (
                   <Text style={styles.quickIcon}>{QUICK_ACCESS_ICONS[cat] ?? '📄'}</Text>
                 )}
@@ -204,7 +295,7 @@ export default function ReceiptsScreen() {
       <View style={styles.header}>
         <View>
           <Text style={[styles.appName, { color: theme.text }]}>Docs & Receipts</Text>
-          <Text style={[styles.subtitle, { color: theme.muted }]}>Expenses and legal documents</Text>
+          <Text style={[styles.subtitle, { color: theme.muted }]}>Photos, PDFs, and legal documents</Text>
         </View>
         <TouchableOpacity
           style={[styles.themeBtn, { backgroundColor: theme.surface }]}
@@ -242,6 +333,13 @@ export default function ReceiptsScreen() {
             <View style={[styles.modalCard, { backgroundColor: theme.surface }]}>
               <Text style={[styles.modalTitle, { color: theme.text }]}>Add document</Text>
 
+              <TouchableOpacity
+                style={[styles.filesBtn, { backgroundColor: theme.accent }]}
+                onPress={pickFile}>
+                <Text style={styles.filesBtnTitle}>📁  Choose from phone files</Text>
+                <Text style={styles.filesBtnHint}>Downloads, PDFs, Google Drive, etc.</Text>
+              </TouchableOpacity>
+
               <View style={styles.photoRow}>
                 <TouchableOpacity style={[styles.photoBtn, { backgroundColor: theme.bg }]} onPress={takePhoto}>
                   <Text style={[styles.photoBtnText, { color: theme.text }]}>📷 Camera</Text>
@@ -251,10 +349,20 @@ export default function ReceiptsScreen() {
                 </TouchableOpacity>
               </View>
 
-              {imageUri ? (
-                <TouchableOpacity onPress={rePickImage} activeOpacity={0.85}>
-                  <Image source={{ uri: imageUri }} style={styles.previewImage} />
-                  <Text style={[styles.retapHint, { color: theme.muted }]}>Tap image to change</Text>
+              {selectedDoc ? (
+                <TouchableOpacity onPress={changeDocument} activeOpacity={0.85}>
+                  {selectedDoc.isImage ? (
+                    <Image source={{ uri: selectedDoc.uri }} style={styles.previewImage} />
+                  ) : (
+                    <View style={[styles.previewPdf, { backgroundColor: theme.bg }]}>
+                      <Text style={{ fontSize: 40 }}>📄</Text>
+                      <Text style={[styles.previewPdfName, { color: theme.text }]} numberOfLines={2}>
+                        {selectedDoc.fileName}
+                      </Text>
+                      <Text style={[styles.previewPdfHint, { color: theme.muted }]}>PDF document</Text>
+                    </View>
+                  )}
+                  <Text style={[styles.retapHint, { color: theme.muted }]}>Tap to change</Text>
                 </TouchableOpacity>
               ) : null}
 
@@ -340,6 +448,7 @@ const styles = StyleSheet.create({
   quickAccessRow:       { flexDirection: 'row', gap: 12 },
   quickCard:            { flex: 1, borderWidth: 2, borderRadius: 12, padding: 12, alignItems: 'center' },
   quickThumb:           { width: 48, height: 48, borderRadius: 8, marginBottom: 8 },
+  quickIconBox:         { width: 48, height: 48, borderRadius: 8, marginBottom: 8, justifyContent: 'center', alignItems: 'center' },
   quickIcon:            { fontSize: 32, marginBottom: 8 },
   quickLabel:           { fontSize: 14, fontWeight: '700' },
   quickStatus:          { fontSize: 11, marginTop: 4, fontWeight: '600' },
@@ -347,8 +456,10 @@ const styles = StyleSheet.create({
   filterBtn:            { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
   filterText:           { fontSize: 13, fontWeight: '600' },
   receiptCard:          { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginBottom: 8, padding: 12, borderRadius: 12 },
-  receiptThumb:         { width: 56, height: 56, borderRadius: 8, marginRight: 12 },
-  noImage:              { width: 56, height: 56, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  thumbWrap:            { marginRight: 12 },
+  receiptThumb:         { width: 56, height: 56, borderRadius: 8 },
+  noImage:              { width: 56, height: 56, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  pdfLabel:             { fontSize: 9, marginTop: 2 },
   receiptInfo:          { flex: 1 },
   receiptAmount:        { fontSize: 18, fontWeight: 'bold', marginTop: 2 },
   receiptDocLabel:      { fontSize: 14, marginTop: 2 },
@@ -362,10 +473,16 @@ const styles = StyleSheet.create({
   modalOverlay:         { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
   modalCard:            { borderRadius: 16, padding: 24, margin: 16 },
   modalTitle:           { fontSize: 20, fontWeight: 'bold', marginBottom: 16 },
+  filesBtn:             { padding: 16, borderRadius: 12, marginBottom: 12 },
+  filesBtnTitle:        { color: '#fff', fontSize: 16, fontWeight: '700' },
+  filesBtnHint:         { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 4 },
   photoRow:             { flexDirection: 'row', gap: 12, marginBottom: 16 },
   photoBtn:             { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center' },
   photoBtnText:         { fontWeight: '600' },
   previewImage:         { width: '100%', height: 180, borderRadius: 12, marginBottom: 8 },
+  previewPdf:           { width: '100%', height: 140, borderRadius: 12, marginBottom: 8, justifyContent: 'center', alignItems: 'center', padding: 16 },
+  previewPdfName:       { fontSize: 14, fontWeight: '600', marginTop: 8, textAlign: 'center' },
+  previewPdfHint:       { fontSize: 12, marginTop: 4 },
   retapHint:            { textAlign: 'center', fontSize: 12, marginBottom: 16 },
   categoryGroup:        { marginBottom: 12 },
   categoryGroupLabel:   { fontSize: 12, fontWeight: '600', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
