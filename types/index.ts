@@ -4,11 +4,14 @@ export type MileEntry = {
   date: string;
 };
 
+export type ReceiptKind = 'expense' | 'document';
+
 export type Receipt = {
   id: string;
   imageUri: string;
   amount: string;
   category: string;
+  kind: ReceiptKind;
   date: string;
 };
 

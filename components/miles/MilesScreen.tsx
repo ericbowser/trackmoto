@@ -62,7 +62,7 @@ export default function MilesScreen() {
 
       <View style={styles.header}>
         <View>
-          <Text style={[styles.appName, { color: theme.text }]}>TrackMoto 🏍️</Text>
+          <Text style={[styles.appName, { color: theme.text }]}>Track Moto 🏍️</Text>
           <Text style={[styles.date, { color: theme.muted }]}>{today}</Text>
         </View>
         <TouchableOpacity

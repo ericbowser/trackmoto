@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "trackmoto",
+    "name": "Track Moto",
     "slug": "trackmoto",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "TrackMoto uses your location to show real-time GPS speed."
+        "NSLocationWhenInUseUsageDescription": "Track Moto uses your location to show real-time GPS speed."
       }
     },
     "android": {
@@ -42,7 +42,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "TrackMoto uses your location to show real-time GPS speed."
+          "locationWhenInUsePermission": "Track Moto uses your location to show real-time GPS speed."
         }
       ]
     ],

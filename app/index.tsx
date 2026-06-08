@@ -11,7 +11,7 @@ type Tab = 'miles' | 'receipts' | 'speed';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'miles',    label: '🏍️ Miles'   },
-  { id: 'receipts', label: '🧾 Receipts' },
+  { id: 'receipts', label: '📋 Docs' },
   { id: 'speed',    label: '⚡ Speed'    },
 ];
 

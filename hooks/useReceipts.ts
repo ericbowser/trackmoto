@@ -1,30 +1,46 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Receipt } from '@/types';
-import { STORAGE_KEYS } from '@/constants/app';
+import { STORAGE_KEYS, isLegalCategory } from '@/constants/app';
+
+function normalizeReceipt(raw: Receipt): Receipt {
+  return {
+    ...raw,
+    kind: raw.kind ?? (isLegalCategory(raw.category) ? 'document' : 'expense'),
+  };
+}
 
 export function useReceipts() {
   const [receipts, setReceipts] = useState<Receipt[]>([]);
+  const isLoaded = useRef(false);
 
-  useEffect(() => { load(); }, []);
-  useEffect(() => { save(); }, [receipts]);
+  useEffect(() => {
+    (async () => {
+      try {
+        const saved = await AsyncStorage.getItem(STORAGE_KEYS.RECEIPTS);
+        if (saved) {
+          setReceipts((JSON.parse(saved) as Receipt[]).map(normalizeReceipt));
+        }
+      } catch (e) {
+        console.error('useReceipts load:', e);
+      } finally {
+        isLoaded.current = true;
+      }
+    })();
+  }, []);
 
-  const load = async () => {
-    try {
-      const saved = await AsyncStorage.getItem(STORAGE_KEYS.RECEIPTS);
-      if (saved) setReceipts(JSON.parse(saved));
-    } catch (e) { console.error('useReceipts load:', e); }
-  };
+  useEffect(() => {
+    if (!isLoaded.current) return;
+    AsyncStorage.setItem(STORAGE_KEYS.RECEIPTS, JSON.stringify(receipts)).catch(e =>
+      console.error('useReceipts save:', e),
+    );
+  }, [receipts]);
 
-  const save = async () => {
-    try {
-      await AsyncStorage.setItem(STORAGE_KEYS.RECEIPTS, JSON.stringify(receipts));
-    } catch (e) { console.error('useReceipts save:', e); }
-  };
-
-  const addReceipt = (receipt: Omit<Receipt, 'id' | 'date'>) => {
+  const addReceipt = (receipt: Omit<Receipt, 'id' | 'date' | 'kind'> & { kind?: Receipt['kind'] }) => {
+    const kind = receipt.kind ?? (isLegalCategory(receipt.category) ? 'document' : 'expense');
     setReceipts(prev => [{
       ...receipt,
+      kind,
       id: Date.now().toString(),
       date: new Date().toLocaleDateString(),
     }, ...prev]);
@@ -34,5 +50,8 @@ export function useReceipts() {
     setReceipts(prev => prev.filter(r => r.id !== id));
   };
 
-  return { receipts, addReceipt, deleteReceipt };
-}
+  const getLatestByCategory = (category: string) =>
+    receipts.find(r => r.category === category);
+
+  return { receipts, addReceipt, deleteReceipt, getLatestByCategory };
+};
