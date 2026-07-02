@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   FlatList, Modal, Alert, Image, ScrollView,
@@ -7,6 +7,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '@/context/ThemeContext';
 import { useReceipts } from '@/hooks/useReceipts';
+import { useVehicles } from '@/hooks/useVehicles';
 import {
   CATEGORY_GROUPS,
   QUICK_ACCESS_CATEGORIES,
@@ -37,22 +38,32 @@ function receiptIsImage(item: Receipt): boolean {
 export default function ReceiptsScreen() {
   const { theme } = useTheme();
   const { receipts, addReceipt, deleteReceipt, getLatestByCategory } = useReceipts();
+  const { vehicles, addVehicle, DEFAULT_VEHICLE_ID } = useVehicles();
 
   const [filter, setFilter] = useState<Filter>('all');
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<PickedDocument | null>(null);
+  const [activeVehicleId, setActiveVehicleId] = useState<string>(DEFAULT_VEHICLE_ID);
+  const [vehicleModalVisible, setVehicleModalVisible] = useState(false);
+  const [newVehicleName, setNewVehicleName] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<string>(CATEGORY_GROUPS[0].categories[0]);
+  const [issuer, setIssuer] = useState('');
+  const [docNumber, setDocNumber] = useState('');
+  const [effectiveDate, setEffectiveDate] = useState('');
+  const [expirationDate, setExpirationDate] = useState('');
+  const [notes, setNotes] = useState('');
   const [zoomUri, setZoomUri] = useState('');
   const [zoomTitle, setZoomTitle] = useState('');
   const [zoomVisible, setZoomVisible] = useState(false);
   const [themePickerVisible, setThemePickerVisible] = useState(false);
 
   const filteredReceipts = useMemo(() => {
-    if (filter === 'expense') return receipts.filter(r => r.kind === 'expense');
-    if (filter === 'legal') return receipts.filter(r => r.kind === 'document');
-    return receipts;
-  }, [receipts, filter]);
+    const byVehicle = receipts.filter(r => r.vehicleId === activeVehicleId);
+    if (filter === 'expense') return byVehicle.filter(r => r.kind === 'expense');
+    if (filter === 'legal') return byVehicle.filter(r => r.kind === 'document');
+    return byVehicle;
+  }, [receipts, filter, activeVehicleId]);
 
   const openImageZoom = (uri: string, title: string) => {
     setZoomUri(uri);
@@ -76,11 +87,16 @@ export default function ReceiptsScreen() {
     setSelectedDoc(null);
     setAmount('');
     setCategory(presetCategory ?? CATEGORY_GROUPS[0].categories[0]);
+    setIssuer('');
+    setDocNumber('');
+    setEffectiveDate('');
+    setExpirationDate('');
+    setNotes('');
     setAddModalVisible(true);
   };
 
   const handleQuickAccess = async (cat: string) => {
-    const doc = getLatestByCategory(cat);
+    const doc = getLatestByCategory(cat, activeVehicleId);
     if (doc?.imageUri) {
       await viewDocument(doc);
       return;
@@ -93,6 +109,14 @@ export default function ReceiptsScreen() {
         { text: 'Add', onPress: () => openAddModal(cat) },
       ],
     );
+  };
+
+  const saveVehicle = () => {
+    const trimmed = newVehicleName.trim();
+    if (!trimmed) return;
+    addVehicle(trimmed);
+    setNewVehicleName('');
+    setVehicleModalVisible(false);
   };
 
   const openSettings = () => {
@@ -186,11 +210,17 @@ export default function ReceiptsScreen() {
       return;
     }
     addReceipt({
+      vehicleId: activeVehicleId,
       imageUri: selectedDoc.uri,
       mimeType: selectedDoc.mimeType,
       fileName: selectedDoc.fileName,
       amount: trimmed,
       category,
+      issuer: issuer.trim() || undefined,
+      docNumber: docNumber.trim() || undefined,
+      effectiveDate: effectiveDate.trim() || undefined,
+      expirationDate: expirationDate.trim() || undefined,
+      notes: notes.trim() || undefined,
     });
     setAddModalVisible(false);
     setSelectedDoc(null);
@@ -256,6 +286,33 @@ export default function ReceiptsScreen() {
 
   const ListHeader = () => (
     <>
+      <View style={[styles.vehicleBar, { backgroundColor: theme.surface }]}>
+        <Text style={[styles.vehicleTitle, { color: theme.text }]}>Vehicle</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.vehiclePills}>
+          {vehicles.map(v => {
+            const isActive = v.id === activeVehicleId;
+            return (
+              <TouchableOpacity
+                key={v.id}
+                style={[
+                  styles.vehiclePill,
+                  { backgroundColor: isActive ? theme.accent : theme.bg },
+                ]}
+                onPress={() => setActiveVehicleId(v.id)}>
+                <Text style={[styles.vehiclePillText, { color: isActive ? '#fff' : theme.muted }]}>
+                  {v.nickname}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+          <TouchableOpacity
+            style={[styles.vehicleAdd, { backgroundColor: theme.bg, borderColor: theme.muted + '44' }]}
+            onPress={() => setVehicleModalVisible(true)}>
+            <Text style={[styles.vehicleAddText, { color: theme.text }]}>+ Add</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
+
       <View style={[styles.quickAccessSection, { backgroundColor: theme.surface }]}>
         <Text style={[styles.quickAccessTitle, { color: theme.text }]}>Roadside quick access</Text>
         <Text style={[styles.quickAccessHint, { color: theme.muted }]}>
@@ -263,7 +320,7 @@ export default function ReceiptsScreen() {
         </Text>
         <View style={styles.quickAccessRow}>
           {QUICK_ACCESS_CATEGORIES.map(cat => {
-            const doc = getLatestByCategory(cat);
+            const doc = getLatestByCategory(cat, activeVehicleId);
             const hasDoc = Boolean(doc?.imageUri);
             return (
               <TouchableOpacity
@@ -353,6 +410,9 @@ export default function ReceiptsScreen() {
           <ScrollView>
             <View style={[styles.modalCard, { backgroundColor: theme.surface }]}>
               <Text style={[styles.modalTitle, { color: theme.text }]}>Add document</Text>
+              <Text style={[styles.modalSubTitle, { color: theme.muted }]}>
+                Vehicle: {vehicles.find(v => v.id === activeVehicleId)?.nickname ?? 'Unknown'}
+              </Text>
 
               <TouchableOpacity
                 style={[styles.filesBtn, { backgroundColor: theme.accent }]}
@@ -420,6 +480,44 @@ export default function ReceiptsScreen() {
                 />
               )}
 
+              <TextInput
+                style={[styles.modalInput, { backgroundColor: theme.bg, color: theme.text }]}
+                placeholder="Issuer (optional)"
+                placeholderTextColor={theme.muted}
+                value={issuer}
+                onChangeText={setIssuer}
+              />
+              <TextInput
+                style={[styles.modalInput, { backgroundColor: theme.bg, color: theme.text }]}
+                placeholder="Policy/ID number (optional)"
+                placeholderTextColor={theme.muted}
+                value={docNumber}
+                onChangeText={setDocNumber}
+              />
+              <View style={styles.dateRow}>
+                <TextInput
+                  style={[styles.dateInput, { backgroundColor: theme.bg, color: theme.text }]}
+                  placeholder="Effective (YYYY-MM-DD)"
+                  placeholderTextColor={theme.muted}
+                  value={effectiveDate}
+                  onChangeText={setEffectiveDate}
+                />
+                <TextInput
+                  style={[styles.dateInput, { backgroundColor: theme.bg, color: theme.text }]}
+                  placeholder="Expires (YYYY-MM-DD)"
+                  placeholderTextColor={theme.muted}
+                  value={expirationDate}
+                  onChangeText={setExpirationDate}
+                />
+              </View>
+              <TextInput
+                style={[styles.modalInput, { backgroundColor: theme.bg, color: theme.text }]}
+                placeholder="Notes (optional)"
+                placeholderTextColor={theme.muted}
+                value={notes}
+                onChangeText={setNotes}
+              />
+
               <View style={styles.modalButtons}>
                 <TouchableOpacity
                   style={[styles.cancelBtn, { backgroundColor: theme.bg }]}
@@ -451,6 +549,34 @@ export default function ReceiptsScreen() {
       </Modal>
 
       <ThemePicker visible={themePickerVisible} onClose={() => setThemePickerVisible(false)} />
+
+      <Modal visible={vehicleModalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { backgroundColor: theme.surface }]}>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>Add vehicle</Text>
+            <TextInput
+              style={[styles.modalInput, { backgroundColor: theme.bg, color: theme.text }]}
+              placeholder="Nickname (e.g., Civic, F-150)"
+              placeholderTextColor={theme.muted}
+              value={newVehicleName}
+              onChangeText={setNewVehicleName}
+              autoCapitalize="words"
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.cancelBtn, { backgroundColor: theme.bg }]}
+                onPress={() => setVehicleModalVisible(false)}>
+                <Text style={[styles.cancelText, { color: theme.muted }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveBtn, { backgroundColor: theme.accent }]}
+                onPress={saveVehicle}>
+                <Text style={styles.saveText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -463,6 +589,13 @@ const styles = StyleSheet.create({
   themeBtn:             { width: 42, height: 42, borderRadius: 21, justifyContent: 'center', alignItems: 'center' },
   themeBtnIcon:         { fontSize: 22 },
   listContent:          { paddingBottom: 100 },
+  vehicleBar:           { marginHorizontal: 16, marginBottom: 12, padding: 16, borderRadius: 14 },
+  vehicleTitle:         { fontSize: 16, fontWeight: '700', marginBottom: 10 },
+  vehiclePills:         { gap: 8, paddingRight: 16 },
+  vehiclePill:          { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
+  vehiclePillText:      { fontSize: 13, fontWeight: '700' },
+  vehicleAdd:           { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 2 },
+  vehicleAddText:       { fontSize: 13, fontWeight: '800' },
   quickAccessSection:   { marginHorizontal: 16, marginBottom: 12, padding: 16, borderRadius: 14 },
   quickAccessTitle:     { fontSize: 16, fontWeight: '700' },
   quickAccessHint:      { fontSize: 12, marginTop: 4, marginBottom: 12 },
@@ -494,6 +627,7 @@ const styles = StyleSheet.create({
   modalOverlay:         { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
   modalCard:            { borderRadius: 16, padding: 24, margin: 16 },
   modalTitle:           { fontSize: 20, fontWeight: 'bold', marginBottom: 16 },
+  modalSubTitle:        { fontSize: 13, marginTop: -10, marginBottom: 14 },
   filesBtn:             { padding: 16, borderRadius: 12, marginBottom: 12 },
   filesBtnTitle:        { color: '#fff', fontSize: 16, fontWeight: '700' },
   filesBtnHint:         { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 4 },
@@ -512,6 +646,8 @@ const styles = StyleSheet.create({
   catText:              { fontSize: 13 },
   catTextActive:        { fontWeight: '700' },
   modalInput:           { padding: 14, borderRadius: 12, fontSize: 16, marginBottom: 16 },
+  dateRow:              { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  dateInput:            { flex: 1, padding: 14, borderRadius: 12, fontSize: 14 },
   modalButtons:         { flexDirection: 'row', gap: 12, marginTop: 8 },
   cancelBtn:            { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center' },
   cancelText:           { fontWeight: 'bold' },

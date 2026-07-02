@@ -6,8 +6,15 @@ export type MileEntry = {
 
 export type ReceiptKind = 'expense' | 'document';
 
+export type Vehicle = {
+  id: string;
+  nickname: string;
+  createdAt: string;
+};
+
 export type Receipt = {
   id: string;
+  vehicleId: string;
   imageUri: string;
   mimeType?: string;
   fileName?: string;
@@ -15,6 +22,11 @@ export type Receipt = {
   category: string;
   kind: ReceiptKind;
   date: string;
+  issuer?: string;
+  docNumber?: string;
+  effectiveDate?: string;   // YYYY-MM-DD
+  expirationDate?: string;  // YYYY-MM-DD
+  notes?: string;
 };
 
 export type Theme = {

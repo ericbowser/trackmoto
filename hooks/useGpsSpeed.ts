@@ -6,7 +6,7 @@ export type GpsStatus   = 'idle' | 'acquiring' | 'active' | 'denied';
 
 const MS_TO_MPH        = 2.23694;
 const MS_TO_KPH        = 3.6;
-const GAUGE_OVER_READ  = 0.10;   // bikes typically read ~10% high
+const GAUGE_OVER_READ  = 0.10;   // many vehicle speedometers read ~10% high
 const MAX_SAMPLES      = 600;    // ~5 min at 2 reads/sec
 
 export function useGpsSpeed() {
@@ -23,7 +23,9 @@ export function useGpsSpeed() {
     [unit],
   );
 
-  const startTracking = async () => {
+  const startTracking = useCallback(async () => {
+    if (subRef.current) return;
+
     setStatus('acquiring');
 
     const { status: perm } = await Location.requestForegroundPermissionsAsync();
@@ -47,15 +49,15 @@ export function useGpsSpeed() {
         setSamples(prev => [...prev.slice(-MAX_SAMPLES), ms]);
       },
     );
-  };
+  }, []);
 
-  const stopTracking = () => {
+  const stopTracking = useCallback(() => {
     subRef.current?.remove();
     subRef.current = null;
     setStatus('idle');
     setCurrentMs(0);
     setAccuracy(null);
-  };
+  }, []);
 
   const resetSession = () => {
     setTopMs(0);

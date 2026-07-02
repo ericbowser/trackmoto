@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { Share } from 'react-native';
 import type { MileEntry } from '@/types';
@@ -23,8 +23,8 @@ export async function shareMilesCsv(entries: MileEntry[]): Promise<void> {
   // Prefer sharing a real file so it can be saved to Drive/Downloads.
   if (await Sharing.isAvailableAsync()) {
     const fileName = `trackmoto-miles-${new Date().toISOString().slice(0, 10)}.csv`;
-    const uri = FileSystem.documentDirectory + fileName;
-    await FileSystem.writeAsStringAsync(uri, csv, { encoding: FileSystem.EncodingType.UTF8 });
+    const uri = (FileSystem.documentDirectory ?? '') + fileName;
+    await FileSystem.writeAsStringAsync(uri, csv);
     await Sharing.shareAsync(uri, {
       mimeType: 'text/csv',
       dialogTitle: 'Export miles CSV',

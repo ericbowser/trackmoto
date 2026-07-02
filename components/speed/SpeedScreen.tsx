@@ -2,7 +2,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Linking, Alert } 
 import { useTheme } from '@/context/ThemeContext';
 import { useGpsSpeed } from '@/hooks/useGpsSpeed';
 import ThemePicker from '@/components/ThemePicker';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const STATUS_LABEL: Record<string, string> = {
   idle:      'Ready',
@@ -30,6 +30,10 @@ export default function SpeedScreen() {
   } = useGpsSpeed();
 
   const [themePickerVisible, setThemePickerVisible] = useState(false);
+
+  useEffect(() => {
+    startTracking();
+  }, [startTracking]);
 
   const fmt   = (n: number) => Math.round(n).toString();
   const fmtD  = (n: number) => (n >= 0 ? '+' : '') + Math.round(n);
@@ -101,7 +105,7 @@ export default function SpeedScreen() {
         <View style={[styles.divider, { backgroundColor: theme.bg }]} />
         <View style={styles.gaugeRow}>
           <View style={styles.gaugeItem}>
-            <Text style={[styles.gaugeLabel, { color: theme.muted }]}>🏍️ Bike Gauge Est.</Text>
+            <Text style={[styles.gaugeLabel, { color: theme.muted }]}>🚗 Dashboard Gauge Est.</Text>
             <Text style={[styles.gaugeValue, { color: theme.text }]}>
               ~{fmt(gauge)} <Text style={[styles.gaugeUnit, { color: theme.muted }]}>{unit}</Text>
             </Text>

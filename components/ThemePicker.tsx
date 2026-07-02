@@ -1,5 +1,6 @@
 import { Modal, View, Text, TouchableOpacity, StyleSheet, Linking, Alert } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
+import { APP_ICONS, type AppIconId, useAppIcon } from '@/context/AppIconContext';
 import { THEMES } from '@/constants/themes';
 import type { Theme } from '@/types';
 
@@ -12,6 +13,7 @@ const PRIVACY_URL = 'https://execute-engrave.com/trackmoto/privacy-policy';
 
 export default function ThemePicker({ visible, onClose }: Props) {
   const { theme, setTheme } = useTheme();
+  const { appIcon, setAppIcon } = useAppIcon();
 
   const handleSelect = (t: Theme) => {
     setTheme(t);
@@ -22,6 +24,10 @@ export default function ThemePicker({ visible, onClose }: Props) {
     Linking.openURL(PRIVACY_URL).catch(() => {
       Alert.alert('Cannot open link', 'Please try again.');
     });
+  };
+
+  const handleIconSelect = (id: AppIconId) => {
+    setAppIcon(id);
   };
 
   return (
@@ -61,6 +67,28 @@ export default function ThemePicker({ visible, onClose }: Props) {
             })}
           </View>
 
+          <Text style={[styles.sectionTitle, { color: theme.muted }]}>App icon</Text>
+          <View style={styles.iconRow}>
+            {Object.values(APP_ICONS).map(icon => {
+              const isActive = icon.id === appIcon.id;
+              return (
+                <TouchableOpacity
+                  key={icon.id}
+                  style={[
+                    styles.iconCell,
+                    { backgroundColor: theme.bg, borderColor: isActive ? theme.accent : theme.muted + '44' },
+                  ]}
+                  onPress={() => handleIconSelect(icon.id)}
+                  accessibilityLabel={`Set icon to ${icon.label}`}>
+                  <Text style={styles.iconEmoji}>{icon.emoji}</Text>
+                  <Text style={[styles.iconLabel, { color: isActive ? theme.text : theme.muted }]}>
+                    {icon.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
           <TouchableOpacity
             style={[styles.privacyBtn, { backgroundColor: theme.bg }]}
             onPress={openPrivacyPolicy}
@@ -88,6 +116,11 @@ const styles = StyleSheet.create({
   label:        { fontSize: 12, marginTop: 8, textAlign: 'center' },
   labelActive:  { fontWeight: '700' },
   activeTag:    { fontSize: 10, fontWeight: '700', marginTop: 2 },
+  sectionTitle: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 4, marginBottom: 10 },
+  iconRow:      { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  iconCell:     { flex: 1, borderWidth: 2, borderRadius: 14, paddingVertical: 12, alignItems: 'center' },
+  iconEmoji:    { fontSize: 26 },
+  iconLabel:    { marginTop: 6, fontSize: 12, fontWeight: '700' },
   privacyBtn:   { marginTop: 6, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
   privacyText:  { fontSize: 14, fontWeight: '700' },
 });

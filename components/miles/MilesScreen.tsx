@@ -4,6 +4,7 @@ import {
   FlatList, Modal, Alert,
 } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
+import { useAppIcon } from '@/context/AppIconContext';
 import { useMiles } from '@/hooks/useMiles';
 import { sanitizeMilesInput, parseMilesInput } from '@/utils/input';
 import { openGoogleMaps } from '@/utils/maps';
@@ -13,6 +14,7 @@ import type { MileEntry } from '@/types';
 
 export default function MilesScreen() {
   const { theme } = useTheme();
+  const { appIcon } = useAppIcon();
   const { entries, addEntry, updateEntry, deleteEntry, totalMiles } = useMiles();
 
   const [miles, setMiles] = useState('');
@@ -84,7 +86,7 @@ export default function MilesScreen() {
 
       <View style={styles.header}>
         <View>
-          <Text style={[styles.appName, { color: theme.text }]}>Track Moto 🏍️</Text>
+          <Text style={[styles.appName, { color: theme.text }]}>Track Moto {appIcon.emoji}</Text>
           <Text style={[styles.date, { color: theme.muted }]}>{today}</Text>
         </View>
         <View style={styles.headerActions}>
@@ -169,7 +171,7 @@ export default function MilesScreen() {
         )}
         ListEmptyComponent={
           <View style={[styles.emptyCard, { backgroundColor: theme.surface }]}>
-            <Text style={[styles.emptyTitle, { color: theme.text }]}>Log your first ride</Text>
+            <Text style={[styles.emptyTitle, { color: theme.text }]}>Log your first trip</Text>
             <Text style={[styles.emptyBody, { color: theme.muted }]}>
               Type miles above, tap Log, and you’ll see your list here. You can tap an entry to edit it.
             </Text>

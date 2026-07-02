@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useTheme } from '@/context/ThemeContext';
+import { useAppIcon } from '@/context/AppIconContext';
 import MilesScreen    from '@/components/miles/MilesScreen';
 import ReceiptsScreen from '@/components/receipts/ReceiptsScreen';
 import SpeedScreen    from '@/components/speed/SpeedScreen';
@@ -10,9 +11,9 @@ import SpeedScreen    from '@/components/speed/SpeedScreen';
 type Tab = 'miles' | 'receipts' | 'speed';
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'miles',    label: '🏍️ Miles'   },
-  { id: 'receipts', label: '📋 Docs' },
   { id: 'speed',    label: '⚡ Speed'    },
+  { id: 'miles',    label: 'Miles'   },
+  { id: 'receipts', label: '📋 Docs' },
 ];
 
 const SCREENS: Record<Tab, ReactElement> = {
@@ -23,8 +24,9 @@ const SCREENS: Record<Tab, ReactElement> = {
 
 export default function Index() {
   const { theme } = useTheme();
+  const { appIcon } = useAppIcon();
   const insets = useSafeAreaInsets();
-  const [activeTab, setActiveTab] = useState<Tab>('miles');
+  const [activeTab, setActiveTab] = useState<Tab>('speed');
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top', 'left', 'right']}>
@@ -44,7 +46,7 @@ export default function Index() {
             style={[styles.tab, activeTab === tab.id && { borderTopWidth: 2, borderTopColor: theme.accent }]}
             onPress={() => setActiveTab(tab.id)}>
             <Text style={[styles.tabText, { color: activeTab === tab.id ? theme.text : theme.muted }]}>
-              {tab.label}
+              {tab.id === 'miles' ? `${appIcon.emoji} ${tab.label}` : tab.label}
             </Text>
           </TouchableOpacity>
         ))}

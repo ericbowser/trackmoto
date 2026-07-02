@@ -6,6 +6,7 @@ import { STORAGE_KEYS, isLegalCategory } from '@/constants/app';
 function normalizeReceipt(raw: Receipt): Receipt {
   return {
     ...raw,
+    vehicleId: raw.vehicleId ?? 'default',
     kind: raw.kind ?? (isLegalCategory(raw.category) ? 'document' : 'expense'),
   };
 }
@@ -40,6 +41,7 @@ export function useReceipts() {
     const kind = receipt.kind ?? (isLegalCategory(receipt.category) ? 'document' : 'expense');
     setReceipts(prev => [{
       ...receipt,
+      vehicleId: receipt.vehicleId ?? 'default',
       kind,
       id: Date.now().toString(),
       date: new Date().toLocaleDateString(),
@@ -50,8 +52,8 @@ export function useReceipts() {
     setReceipts(prev => prev.filter(r => r.id !== id));
   };
 
-  const getLatestByCategory = (category: string) =>
-    receipts.find(r => r.category === category);
+  const getLatestByCategory = (category: string, vehicleId?: string) =>
+    receipts.find(r => r.category === category && (vehicleId ? r.vehicleId === vehicleId : true));
 
   return { receipts, addReceipt, deleteReceipt, getLatestByCategory };
 };
