@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   FlatList, Modal, Alert, Image, ScrollView,
+  Linking,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '@/context/ThemeContext';
@@ -94,10 +95,23 @@ export default function ReceiptsScreen() {
     );
   };
 
+  const openSettings = () => {
+    Linking.openSettings().catch(() => {
+      Alert.alert('Cannot open settings', 'Please open Settings and allow permissions for Track Moto.');
+    });
+  };
+
   const takePhoto = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Camera permission needed');
+      Alert.alert(
+        'Camera permission needed',
+        'Allow camera access in Settings to take a photo.',
+        [
+          { text: 'Not now', style: 'cancel' },
+          { text: 'Open Settings', onPress: openSettings },
+        ],
+      );
       return;
     }
     const result = await ImagePicker.launchCameraAsync({ quality: 0.85 });
@@ -118,7 +132,14 @@ export default function ReceiptsScreen() {
   const pickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Photo access needed', 'Allow photo access in Settings to pick images from your gallery.');
+      Alert.alert(
+        'Photo access needed',
+        'Allow photo access in Settings to pick images from your gallery.',
+        [
+          { text: 'Not now', style: 'cancel' },
+          { text: 'Open Settings', onPress: openSettings },
+        ],
+      );
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({

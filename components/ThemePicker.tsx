@@ -1,4 +1,4 @@
-import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, StyleSheet, Linking, Alert } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { THEMES } from '@/constants/themes';
 import type { Theme } from '@/types';
@@ -8,12 +8,20 @@ type Props = {
   onClose: () => void;
 };
 
+const PRIVACY_URL = 'https://execute-engrave.com/trackmoto/privacy-policy';
+
 export default function ThemePicker({ visible, onClose }: Props) {
   const { theme, setTheme } = useTheme();
 
   const handleSelect = (t: Theme) => {
     setTheme(t);
     onClose();
+  };
+
+  const openPrivacyPolicy = () => {
+    Linking.openURL(PRIVACY_URL).catch(() => {
+      Alert.alert('Cannot open link', 'Please try again.');
+    });
   };
 
   return (
@@ -52,6 +60,13 @@ export default function ThemePicker({ visible, onClose }: Props) {
               );
             })}
           </View>
+
+          <TouchableOpacity
+            style={[styles.privacyBtn, { backgroundColor: theme.bg }]}
+            onPress={openPrivacyPolicy}
+            accessibilityLabel="Open privacy policy">
+            <Text style={[styles.privacyText, { color: theme.text }]}>Privacy policy</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </Modal>
@@ -73,4 +88,6 @@ const styles = StyleSheet.create({
   label:        { fontSize: 12, marginTop: 8, textAlign: 'center' },
   labelActive:  { fontWeight: '700' },
   activeTag:    { fontSize: 10, fontWeight: '700', marginTop: 2 },
+  privacyBtn:   { marginTop: 6, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
+  privacyText:  { fontSize: 14, fontWeight: '700' },
 });

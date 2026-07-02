@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Linking, Alert } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { useGpsSpeed } from '@/hooks/useGpsSpeed';
 import ThemePicker from '@/components/ThemePicker';
@@ -37,6 +37,12 @@ export default function SpeedScreen() {
 
   const dotColor = STATUS_COLOR[status] ?? '#888';
 
+  const openSettings = () => {
+    Linking.openSettings().catch(() => {
+      Alert.alert('Cannot open settings', 'Please open Settings and allow location permission for Track Moto.');
+    });
+  };
+
   return (
     <View style={[styles.screen, { backgroundColor: theme.bg }]}>
 
@@ -68,6 +74,20 @@ export default function SpeedScreen() {
           </Text>
         )}
       </View>
+
+      {status === 'denied' ? (
+        <View style={[styles.deniedCard, { backgroundColor: theme.surface }]}>
+          <Text style={[styles.deniedTitle, { color: theme.text }]}>Enable location to use Speed</Text>
+          <Text style={[styles.deniedBody, { color: theme.muted }]}>
+            Track Moto only uses location while tracking speed.
+          </Text>
+          <TouchableOpacity
+            style={[styles.deniedBtn, { backgroundColor: theme.accent }]}
+            onPress={openSettings}>
+            <Text style={styles.deniedBtnText}>Open Settings</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
 
       {/* Main Speed Display */}
       <View style={[styles.speedCard, { backgroundColor: theme.surface }]}>
@@ -163,6 +183,11 @@ const styles = StyleSheet.create({
   statusDot:     { width: 8, height: 8, borderRadius: 4 },
   statusText:    { flex: 1, fontSize: 13 },
   accuracyText:  { fontSize: 12 },
+  deniedCard:    { marginHorizontal: 16, marginBottom: 12, borderRadius: 14, padding: 16 },
+  deniedTitle:   { fontSize: 16, fontWeight: '800' },
+  deniedBody:    { marginTop: 6, fontSize: 13, lineHeight: 18 },
+  deniedBtn:     { marginTop: 12, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
+  deniedBtnText: { color: '#fff', fontSize: 14, fontWeight: '800' },
 
   speedCard:     { marginHorizontal: 16, marginBottom: 12, borderRadius: 20, padding: 24 },
   speedLabel:    { fontSize: 12, fontWeight: '600', letterSpacing: 1.5, marginBottom: 4 },

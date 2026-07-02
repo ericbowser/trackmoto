@@ -7,6 +7,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useMiles } from '@/hooks/useMiles';
 import { sanitizeMilesInput, parseMilesInput } from '@/utils/input';
 import { openGoogleMaps } from '@/utils/maps';
+import { shareMilesCsv } from '@/utils/exportMiles';
 import ThemePicker from '@/components/ThemePicker';
 import type { MileEntry } from '@/types';
 
@@ -66,6 +67,18 @@ export default function MilesScreen() {
     }
   };
 
+  const handleExportMiles = async () => {
+    if (entries.length === 0) {
+      Alert.alert('Nothing to export', 'Log at least one entry first.');
+      return;
+    }
+    try {
+      await shareMilesCsv(entries);
+    } catch {
+      Alert.alert('Export failed', 'Could not export miles. Try again.');
+    }
+  };
+
   return (
     <View style={[styles.screen, { backgroundColor: theme.bg }]}>
 
@@ -74,11 +87,20 @@ export default function MilesScreen() {
           <Text style={[styles.appName, { color: theme.text }]}>Track Moto 🏍️</Text>
           <Text style={[styles.date, { color: theme.muted }]}>{today}</Text>
         </View>
-        <TouchableOpacity
-          style={[styles.themeBtn, { backgroundColor: theme.surface }]}
-          onPress={() => setThemePickerVisible(true)}>
-          <Text style={styles.themeBtnIcon}>🎨</Text>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={[styles.iconBtn, { backgroundColor: theme.surface }]}
+            onPress={handleExportMiles}
+            accessibilityLabel="Export miles CSV">
+            <Text style={styles.iconBtnIcon}>⬇️</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.iconBtn, { backgroundColor: theme.surface }]}
+            onPress={() => setThemePickerVisible(true)}
+            accessibilityLabel="Change theme">
+            <Text style={styles.iconBtnIcon}>🎨</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={[styles.totalCard, { backgroundColor: theme.surface }]}>
@@ -146,7 +168,18 @@ export default function MilesScreen() {
           </View>
         )}
         ListEmptyComponent={
-          <Text style={[styles.empty, { color: theme.muted }]}>No miles logged yet.</Text>
+          <View style={[styles.emptyCard, { backgroundColor: theme.surface }]}>
+            <Text style={[styles.emptyTitle, { color: theme.text }]}>Log your first ride</Text>
+            <Text style={[styles.emptyBody, { color: theme.muted }]}>
+              Type miles above, tap Log, and you’ll see your list here. You can tap an entry to edit it.
+            </Text>
+            <TouchableOpacity
+              style={[styles.emptySecondaryBtn, { backgroundColor: theme.bg }]}
+              onPress={handleOpenMaps}
+              activeOpacity={0.85}>
+              <Text style={[styles.emptySecondaryText, { color: theme.text }]}>Open Google Maps</Text>
+            </TouchableOpacity>
+          </View>
         }
       />
 
@@ -185,10 +218,11 @@ export default function MilesScreen() {
 const styles = StyleSheet.create({
   screen:        { flex: 1 },
   header:        { padding: 24, paddingTop: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  headerActions: { flexDirection: 'row', gap: 10 },
   appName:       { fontSize: 28, fontWeight: 'bold' },
   date:          { fontSize: 14, marginTop: 4 },
-  themeBtn:      { width: 42, height: 42, borderRadius: 21, justifyContent: 'center', alignItems: 'center' },
-  themeBtnIcon:  { fontSize: 22 },
+  iconBtn:       { width: 42, height: 42, borderRadius: 21, justifyContent: 'center', alignItems: 'center' },
+  iconBtnIcon:   { fontSize: 20 },
   totalCard:     { margin: 16, padding: 24, borderRadius: 16, alignItems: 'center' },
   totalLabel:    { fontSize: 14 },
   totalMiles:    { fontSize: 64, fontWeight: 'bold' },
@@ -216,7 +250,11 @@ const styles = StyleSheet.create({
   entryTime:     { fontSize: 14 },
   deleteBtn:     { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
   deleteBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 13 },
-  empty:         { textAlign: 'center', marginTop: 32 },
+  emptyCard:     { marginHorizontal: 16, marginTop: 12, padding: 16, borderRadius: 14 },
+  emptyTitle:    { fontSize: 16, fontWeight: '800' },
+  emptyBody:     { marginTop: 6, fontSize: 13, lineHeight: 18 },
+  emptySecondaryBtn: { marginTop: 12, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
+  emptySecondaryText: { fontSize: 14, fontWeight: '700' },
   modalOverlay:  { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
   modalCard:     { borderRadius: 16, padding: 24, margin: 16 },
   modalTitle:    { fontSize: 20, fontWeight: 'bold', marginBottom: 16 },
