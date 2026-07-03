@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   FlatList, Modal, Alert,
@@ -6,17 +6,21 @@ import {
 import { useTheme } from '@/context/ThemeContext';
 import { useAppIcon } from '@/context/AppIconContext';
 import { useMiles } from '@/hooks/useMiles';
+import { useVehicles } from '@/hooks/useVehicles';
 import { sanitizeMilesInput, parseMilesInput } from '@/utils/input';
 import { openGoogleMaps } from '@/utils/maps';
 import { shareMilesCsv } from '@/utils/exportMiles';
 import ThemePicker from '@/components/ThemePicker';
+import VehicleSelector from '@/components/vehicles/VehicleSelector';
 import type { MileEntry } from '@/types';
 
 export default function MilesScreen() {
   const { theme } = useTheme();
   const { appIcon } = useAppIcon();
-  const { entries, addEntry, updateEntry, deleteEntry, totalMiles } = useMiles();
+  const { entries, addEntry, updateEntry, deleteEntry } = useMiles();
+  const { vehicles, addVehicle, DEFAULT_VEHICLE_ID } = useVehicles();
 
+  const [activeVehicleId, setActiveVehicleId] = useState(DEFAULT_VEHICLE_ID);
   const [miles, setMiles] = useState('');
   const [editEntry, setEditEntry] = useState<MileEntry | null>(null);
   const [editMiles, setEditMiles] = useState('');
@@ -26,6 +30,18 @@ export default function MilesScreen() {
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric',
   });
+
+  const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
+  const vehicleEntries = useMemo(
+    () => entries.filter(e => e.vehicleId === activeVehicleId),
+    [entries, activeVehicleId],
+  );
+  const totalMiles = vehicleEntries.reduce((sum, e) => sum + e.miles, 0);
+  const vehicleNameMap = useMemo(
+    () => Object.fromEntries(vehicles.map(v => [v.id, v.nickname])),
+    [vehicles],
+  );
+
   const pendingMiles = parseMilesInput(miles);
   const isTyping     = miles.length > 0;
   const displayTotal = totalMiles + pendingMiles;
@@ -36,7 +52,7 @@ export default function MilesScreen() {
   const logMiles = () => {
     const value = parseMilesInput(miles);
     if (!miles || value <= 0) return;
-    addEntry(value);
+    addEntry(value, activeVehicleId);
     setMiles('');
   };
 
@@ -70,12 +86,12 @@ export default function MilesScreen() {
   };
 
   const handleExportMiles = async () => {
-    if (entries.length === 0) {
-      Alert.alert('Nothing to export', 'Log at least one entry first.');
+    if (vehicleEntries.length === 0) {
+      Alert.alert('Nothing to export', 'Log at least one entry for this vehicle first.');
       return;
     }
     try {
-      await shareMilesCsv(entries);
+      await shareMilesCsv(vehicleEntries, vehicleNameMap);
     } catch {
       Alert.alert('Export failed', 'Could not export miles. Try again.');
     }
@@ -105,8 +121,17 @@ export default function MilesScreen() {
         </View>
       </View>
 
+      <VehicleSelector
+        vehicles={vehicles}
+        activeVehicleId={activeVehicleId}
+        onSelectVehicle={setActiveVehicleId}
+        onAddVehicle={addVehicle}
+      />
+
       <View style={[styles.totalCard, { backgroundColor: theme.surface }]}>
-        <Text style={[styles.totalLabel, { color: theme.muted }]}>Today's Miles</Text>
+        <Text style={[styles.totalLabel, { color: theme.muted }]}>
+          Today's Miles{activeVehicle ? ` · ${activeVehicle.nickname}` : ''}
+        </Text>
         <Text style={[styles.totalMiles, { color: theme.accent }]}>
           {displayTotal.toFixed(1)}
         </Text>
@@ -153,7 +178,7 @@ export default function MilesScreen() {
       </View>
 
       <FlatList
-        data={entries}
+        data={vehicleEntries}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.listContent}
         renderItem={({ item }) => (

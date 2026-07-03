@@ -1,30 +1,45 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { MileEntry } from '@/types';
 import { STORAGE_KEYS } from '@/constants/app';
 
+function normalizeEntry(raw: MileEntry): MileEntry {
+  return {
+    ...raw,
+    vehicleId: raw.vehicleId ?? 'default',
+  };
+}
+
 export function useMiles() {
   const [entries, setEntries] = useState<MileEntry[]>([]);
+  const isLoaded = useRef(false);
 
-  useEffect(() => { load(); }, []);
-  useEffect(() => { save(); }, [entries]);
+  useEffect(() => {
+    (async () => {
+      try {
+        const saved = await AsyncStorage.getItem(STORAGE_KEYS.MILES);
+        if (saved) {
+          setEntries((JSON.parse(saved) as MileEntry[]).map(normalizeEntry));
+        }
+      } catch (e) {
+        console.error('useMiles load:', e);
+      } finally {
+        isLoaded.current = true;
+      }
+    })();
+  }, []);
 
-  const load = async () => {
-    try {
-      const saved = await AsyncStorage.getItem(STORAGE_KEYS.MILES);
-      if (saved) setEntries(JSON.parse(saved));
-    } catch (e) { console.error('useMiles load:', e); }
-  };
+  useEffect(() => {
+    if (!isLoaded.current) return;
+    AsyncStorage.setItem(STORAGE_KEYS.MILES, JSON.stringify(entries)).catch(e =>
+      console.error('useMiles save:', e),
+    );
+  }, [entries]);
 
-  const save = async () => {
-    try {
-      await AsyncStorage.setItem(STORAGE_KEYS.MILES, JSON.stringify(entries));
-    } catch (e) { console.error('useMiles save:', e); }
-  };
-
-  const addEntry = (miles: number) => {
+  const addEntry = (miles: number, vehicleId: string) => {
     setEntries(prev => [{
       id: Date.now().toString(),
+      vehicleId: vehicleId || 'default',
       miles,
       date: new Date().toLocaleTimeString(),
     }, ...prev]);
@@ -38,7 +53,5 @@ export function useMiles() {
     setEntries(prev => prev.filter(e => e.id !== id));
   };
 
-  const totalMiles = entries.reduce((sum, e) => sum + e.miles, 0);
-
-  return { entries, addEntry, updateEntry, deleteEntry, totalMiles };
+  return { entries, addEntry, updateEntry, deleteEntry };
 }

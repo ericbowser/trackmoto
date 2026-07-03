@@ -14,6 +14,7 @@ import {
   isLegalCategory,
 } from '@/constants/app';
 import ThemePicker from '@/components/ThemePicker';
+import VehicleSelector from '@/components/vehicles/VehicleSelector';
 import {
   pickFromFiles,
   persistDocument,
@@ -44,8 +45,6 @@ export default function ReceiptsScreen() {
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<PickedDocument | null>(null);
   const [activeVehicleId, setActiveVehicleId] = useState<string>(DEFAULT_VEHICLE_ID);
-  const [vehicleModalVisible, setVehicleModalVisible] = useState(false);
-  const [newVehicleName, setNewVehicleName] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<string>(CATEGORY_GROUPS[0].categories[0]);
   const [issuer, setIssuer] = useState('');
@@ -109,14 +108,6 @@ export default function ReceiptsScreen() {
         { text: 'Add', onPress: () => openAddModal(cat) },
       ],
     );
-  };
-
-  const saveVehicle = () => {
-    const trimmed = newVehicleName.trim();
-    if (!trimmed) return;
-    addVehicle(trimmed);
-    setNewVehicleName('');
-    setVehicleModalVisible(false);
   };
 
   const openSettings = () => {
@@ -286,32 +277,12 @@ export default function ReceiptsScreen() {
 
   const ListHeader = () => (
     <>
-      <View style={[styles.vehicleBar, { backgroundColor: theme.surface }]}>
-        <Text style={[styles.vehicleTitle, { color: theme.text }]}>Vehicle</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.vehiclePills}>
-          {vehicles.map(v => {
-            const isActive = v.id === activeVehicleId;
-            return (
-              <TouchableOpacity
-                key={v.id}
-                style={[
-                  styles.vehiclePill,
-                  { backgroundColor: isActive ? theme.accent : theme.bg },
-                ]}
-                onPress={() => setActiveVehicleId(v.id)}>
-                <Text style={[styles.vehiclePillText, { color: isActive ? '#fff' : theme.muted }]}>
-                  {v.nickname}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-          <TouchableOpacity
-            style={[styles.vehicleAdd, { backgroundColor: theme.bg, borderColor: theme.muted + '44' }]}
-            onPress={() => setVehicleModalVisible(true)}>
-            <Text style={[styles.vehicleAddText, { color: theme.text }]}>+ Add</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </View>
+      <VehicleSelector
+        vehicles={vehicles}
+        activeVehicleId={activeVehicleId}
+        onSelectVehicle={setActiveVehicleId}
+        onAddVehicle={addVehicle}
+      />
 
       <View style={[styles.quickAccessSection, { backgroundColor: theme.surface }]}>
         <Text style={[styles.quickAccessTitle, { color: theme.text }]}>Roadside quick access</Text>
@@ -549,34 +520,6 @@ export default function ReceiptsScreen() {
       </Modal>
 
       <ThemePicker visible={themePickerVisible} onClose={() => setThemePickerVisible(false)} />
-
-      <Modal visible={vehicleModalVisible} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, { backgroundColor: theme.surface }]}>
-            <Text style={[styles.modalTitle, { color: theme.text }]}>Add vehicle</Text>
-            <TextInput
-              style={[styles.modalInput, { backgroundColor: theme.bg, color: theme.text }]}
-              placeholder="Nickname (e.g., Civic, F-150)"
-              placeholderTextColor={theme.muted}
-              value={newVehicleName}
-              onChangeText={setNewVehicleName}
-              autoCapitalize="words"
-            />
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.cancelBtn, { backgroundColor: theme.bg }]}
-                onPress={() => setVehicleModalVisible(false)}>
-                <Text style={[styles.cancelText, { color: theme.muted }]}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.saveBtn, { backgroundColor: theme.accent }]}
-                onPress={saveVehicle}>
-                <Text style={styles.saveText}>Save</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -589,13 +532,6 @@ const styles = StyleSheet.create({
   themeBtn:             { width: 42, height: 42, borderRadius: 21, justifyContent: 'center', alignItems: 'center' },
   themeBtnIcon:         { fontSize: 22 },
   listContent:          { paddingBottom: 100 },
-  vehicleBar:           { marginHorizontal: 16, marginBottom: 12, padding: 16, borderRadius: 14 },
-  vehicleTitle:         { fontSize: 16, fontWeight: '700', marginBottom: 10 },
-  vehiclePills:         { gap: 8, paddingRight: 16 },
-  vehiclePill:          { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
-  vehiclePillText:      { fontSize: 13, fontWeight: '700' },
-  vehicleAdd:           { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 2 },
-  vehicleAddText:       { fontSize: 13, fontWeight: '800' },
   quickAccessSection:   { marginHorizontal: 16, marginBottom: 12, padding: 16, borderRadius: 14 },
   quickAccessTitle:     { fontSize: 16, fontWeight: '700' },
   quickAccessHint:      { fontSize: 12, marginTop: 4, marginBottom: 12 },

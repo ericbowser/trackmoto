@@ -1,5 +1,6 @@
 export type MileEntry = {
   id: string;
+  vehicleId: string;
   miles: number;
   date: string;
 };

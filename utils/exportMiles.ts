@@ -9,16 +9,23 @@ function escapeCsv(value: string): string {
   return needsQuotes ? `"${escaped}"` : escaped;
 }
 
-export function milesToCsv(entries: MileEntry[]): string {
-  const lines: string[] = ['date,miles'];
+export function milesToCsv(
+  entries: MileEntry[],
+  vehicleNames: Record<string, string> = {},
+): string {
+  const lines: string[] = ['vehicle,date,miles'];
   for (const e of entries) {
-    lines.push([escapeCsv(e.date), String(e.miles)].join(','));
+    const vehicle = vehicleNames[e.vehicleId] ?? e.vehicleId;
+    lines.push([escapeCsv(vehicle), escapeCsv(e.date), String(e.miles)].join(','));
   }
   return lines.join('\n') + '\n';
 }
 
-export async function shareMilesCsv(entries: MileEntry[]): Promise<void> {
-  const csv = milesToCsv(entries);
+export async function shareMilesCsv(
+  entries: MileEntry[],
+  vehicleNames: Record<string, string> = {},
+): Promise<void> {
+  const csv = milesToCsv(entries, vehicleNames);
 
   // Prefer sharing a real file so it can be saved to Drive/Downloads.
   if (await Sharing.isAvailableAsync()) {
