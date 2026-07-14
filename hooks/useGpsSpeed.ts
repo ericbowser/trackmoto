@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { Platform } from 'react-native';
 import * as Location from 'expo-location';
 
 export type SpeedUnit   = 'mph' | 'kph';
@@ -8,6 +9,16 @@ const MS_TO_MPH        = 2.23694;
 const MS_TO_KPH        = 3.6;
 const GAUGE_OVER_READ  = 0.10;   // many vehicle speedometers read ~10% high
 const MAX_SAMPLES      = 600;    // ~5 min at 2 reads/sec
+
+function safeRemoveSubscription(sub: Location.LocationSubscription | null) {
+  if (!sub) return;
+  try {
+    sub.remove();
+  } catch (e) {
+    // expo-location on web can throw when tearing down the watcher
+    console.warn('useGpsSpeed: failed to remove location subscription', e);
+  }
+}
 
 export function useGpsSpeed() {
   const [status,   setStatus]   = useState<GpsStatus>('idle');
@@ -34,25 +45,32 @@ export function useGpsSpeed() {
       return;
     }
 
-    subRef.current = await Location.watchPositionAsync(
-      {
-        accuracy:         Location.Accuracy.BestForNavigation,
-        timeInterval:     500,
-        distanceInterval: 0,
-      },
-      (loc) => {
-        const ms = Math.max(0, loc.coords.speed ?? 0);
-        setStatus('active');
-        setCurrentMs(ms);
-        setAccuracy(loc.coords.accuracy ?? null);
-        setTopMs(prev => Math.max(prev, ms));
-        setSamples(prev => [...prev.slice(-MAX_SAMPLES), ms]);
-      },
-    );
+    try {
+      subRef.current = await Location.watchPositionAsync(
+        {
+          accuracy:         Location.Accuracy.BestForNavigation,
+          timeInterval:     500,
+          distanceInterval: 0,
+        },
+        (loc) => {
+          // Browser Geolocation often omits speed; treat null as 0.
+          const ms = Math.max(0, loc.coords.speed ?? 0);
+          setStatus('active');
+          setCurrentMs(ms);
+          setAccuracy(loc.coords.accuracy ?? null);
+          setTopMs(prev => Math.max(prev, ms));
+          setSamples(prev => [...prev.slice(-MAX_SAMPLES), ms]);
+        },
+      );
+    } catch (e) {
+      console.warn('useGpsSpeed: watchPositionAsync failed', e);
+      setStatus(Platform.OS === 'web' ? 'idle' : 'denied');
+      subRef.current = null;
+    }
   }, []);
 
   const stopTracking = useCallback(() => {
-    subRef.current?.remove();
+    safeRemoveSubscription(subRef.current);
     subRef.current = null;
     setStatus('idle');
     setCurrentMs(0);
@@ -65,7 +83,10 @@ export function useGpsSpeed() {
   };
 
   // clean up subscription when component unmounts
-  useEffect(() => () => { subRef.current?.remove(); }, []);
+  useEffect(() => () => {
+    safeRemoveSubscription(subRef.current);
+    subRef.current = null;
+  }, []);
 
   // derived display values
   const current       = toUnit(currentMs);

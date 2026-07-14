@@ -1,9 +1,10 @@
 export const STORAGE_KEYS = {
-  MILES:    'trackmoto_entries',
-  RECEIPTS: 'trackmoto_receipts',
-  THEME:    'trackmoto_theme',
-  APP_ICON: 'trackmoto_app_icon',
-  VEHICLES: 'trackmoto_vehicles',
+  MILES:           'trackmoto_entries',
+  RECEIPTS:        'trackmoto_receipts',
+  THEME:           'trackmoto_theme',
+  APP_ICON:        'trackmoto_app_icon',
+  VEHICLES:        'trackmoto_vehicles',
+  ACTIVE_VEHICLE:  'trackmoto_active_vehicle',
 } as const;
 
 export const EXPENSE_CATEGORIES = [

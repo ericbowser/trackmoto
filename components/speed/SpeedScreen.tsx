@@ -2,10 +2,10 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Linking, Alert } 
 import { useTheme } from '@/context/ThemeContext';
 import { useGpsSpeed } from '@/hooks/useGpsSpeed';
 import ThemePicker from '@/components/ThemePicker';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 const STATUS_LABEL: Record<string, string> = {
-  idle:      'Ready',
+  idle:      'Ready — tap Start Tracking',
   acquiring: 'Acquiring GPS signal...',
   active:    'GPS Active',
   denied:    'Location permission denied — check settings',
@@ -30,10 +30,6 @@ export default function SpeedScreen() {
   } = useGpsSpeed();
 
   const [themePickerVisible, setThemePickerVisible] = useState(false);
-
-  useEffect(() => {
-    startTracking();
-  }, [startTracking]);
 
   const fmt   = (n: number) => Math.round(n).toString();
   const fmtD  = (n: number) => (n >= 0 ? '+' : '') + Math.round(n);
@@ -78,6 +74,15 @@ export default function SpeedScreen() {
           </Text>
         )}
       </View>
+
+      {status === 'idle' ? (
+        <View style={[styles.hintCard, { backgroundColor: theme.surface }]}>
+          <Text style={[styles.hintTitle, { color: theme.text }]}>Location stays off until you start</Text>
+          <Text style={[styles.hintBody, { color: theme.muted }]}>
+            Track Moto only uses GPS while you’re actively tracking speed.
+          </Text>
+        </View>
+      ) : null}
 
       {status === 'denied' ? (
         <View style={[styles.deniedCard, { backgroundColor: theme.surface }]}>
@@ -187,6 +192,9 @@ const styles = StyleSheet.create({
   statusDot:     { width: 8, height: 8, borderRadius: 4 },
   statusText:    { flex: 1, fontSize: 13 },
   accuracyText:  { fontSize: 12 },
+  hintCard:      { marginHorizontal: 16, marginBottom: 12, borderRadius: 14, padding: 16 },
+  hintTitle:     { fontSize: 15, fontWeight: '800' },
+  hintBody:      { marginTop: 6, fontSize: 13, lineHeight: 18 },
   deniedCard:    { marginHorizontal: 16, marginBottom: 12, borderRadius: 14, padding: 16 },
   deniedTitle:   { fontSize: 16, fontWeight: '800' },
   deniedBody:    { marginTop: 6, fontSize: 13, lineHeight: 18 },

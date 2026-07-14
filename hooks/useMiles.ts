@@ -2,11 +2,33 @@ import { useState, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { MileEntry } from '@/types';
 import { STORAGE_KEYS } from '@/constants/app';
+import { parseLegacyTimeOntoDay } from '@/utils/dates';
 
-function normalizeEntry(raw: MileEntry): MileEntry {
+type RawMileEntry = Partial<MileEntry> & {
+  id?: string;
+  miles?: number;
+  vehicleId?: string;
+  date?: string;
+  loggedAt?: string;
+};
+
+function normalizeEntry(raw: RawMileEntry): MileEntry | null {
+  if (!raw.id || typeof raw.miles !== 'number' || Number.isNaN(raw.miles)) return null;
+
+  let loggedAt = raw.loggedAt;
+  if (!loggedAt || Number.isNaN(new Date(loggedAt).getTime())) {
+    // Legacy entries only stored a time label — attach it to today so they
+    // stop polluting "today" forever after midnight.
+    const fromLegacy = raw.date ? parseLegacyTimeOntoDay(raw.date) : null;
+    loggedAt = (fromLegacy ?? new Date()).toISOString();
+  }
+
   return {
-    ...raw,
+    id: String(raw.id),
     vehicleId: raw.vehicleId ?? 'default',
+    miles: raw.miles,
+    loggedAt,
+    date: raw.date,
   };
 }
 
@@ -19,7 +41,8 @@ export function useMiles() {
       try {
         const saved = await AsyncStorage.getItem(STORAGE_KEYS.MILES);
         if (saved) {
-          setEntries((JSON.parse(saved) as MileEntry[]).map(normalizeEntry));
+          const parsed = JSON.parse(saved) as RawMileEntry[];
+          setEntries(parsed.map(normalizeEntry).filter((e): e is MileEntry => e !== null));
         }
       } catch (e) {
         console.error('useMiles load:', e);
@@ -37,11 +60,12 @@ export function useMiles() {
   }, [entries]);
 
   const addEntry = (miles: number, vehicleId: string) => {
+    const now = new Date();
     setEntries(prev => [{
-      id: Date.now().toString(),
+      id: `${now.getTime()}-${Math.random().toString(36).slice(2, 8)}`,
       vehicleId: vehicleId || 'default',
       miles,
-      date: new Date().toLocaleTimeString(),
+      loggedAt: now.toISOString(),
     }, ...prev]);
   };
 

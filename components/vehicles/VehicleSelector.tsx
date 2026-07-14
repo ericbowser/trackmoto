@@ -4,29 +4,18 @@ import {
   ScrollView, Modal,
 } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
-import type { Vehicle } from '@/types';
+import { useVehicles } from '@/hooks/useVehicles';
 
-type Props = {
-  vehicles: Vehicle[];
-  activeVehicleId: string;
-  onSelectVehicle: (id: string) => void;
-  onAddVehicle: (nickname: string) => void;
-};
-
-export default function VehicleSelector({
-  vehicles,
-  activeVehicleId,
-  onSelectVehicle,
-  onAddVehicle,
-}: Props) {
+export default function VehicleSelector() {
   const { theme } = useTheme();
+  const { vehicles, activeVehicleId, setActiveVehicleId, addVehicle } = useVehicles();
   const [modalVisible, setModalVisible] = useState(false);
   const [newName, setNewName] = useState('');
 
   const saveVehicle = () => {
     const trimmed = newName.trim();
     if (!trimmed) return;
-    onAddVehicle(trimmed);
+    addVehicle(trimmed);
     setNewName('');
     setModalVisible(false);
   };
@@ -42,7 +31,7 @@ export default function VehicleSelector({
               <TouchableOpacity
                 key={v.id}
                 style={[styles.pill, { backgroundColor: isActive ? theme.accent : theme.bg }]}
-                onPress={() => onSelectVehicle(v.id)}>
+                onPress={() => setActiveVehicleId(v.id)}>
                 <Text style={[styles.pillText, { color: isActive ? '#fff' : theme.muted }]}>
                   {v.nickname}
                 </Text>

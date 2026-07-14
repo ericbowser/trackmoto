@@ -10,6 +10,7 @@ import { useVehicles } from '@/hooks/useVehicles';
 import { sanitizeMilesInput, parseMilesInput } from '@/utils/input';
 import { openGoogleMaps } from '@/utils/maps';
 import { shareMilesCsv } from '@/utils/exportMiles';
+import { formatMileEntryWhen, isSameLocalDay } from '@/utils/dates';
 import ThemePicker from '@/components/ThemePicker';
 import VehicleSelector from '@/components/vehicles/VehicleSelector';
 import type { MileEntry } from '@/types';
@@ -18,25 +19,28 @@ export default function MilesScreen() {
   const { theme } = useTheme();
   const { appIcon } = useAppIcon();
   const { entries, addEntry, updateEntry, deleteEntry } = useMiles();
-  const { vehicles, addVehicle, DEFAULT_VEHICLE_ID } = useVehicles();
+  const { vehicles, activeVehicleId, activeVehicle } = useVehicles();
 
-  const [activeVehicleId, setActiveVehicleId] = useState(DEFAULT_VEHICLE_ID);
   const [miles, setMiles] = useState('');
   const [editEntry, setEditEntry] = useState<MileEntry | null>(null);
   const [editMiles, setEditMiles] = useState('');
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [themePickerVisible, setThemePickerVisible] = useState(false);
 
-  const today = new Date().toLocaleDateString('en-US', {
+  const todayLabel = new Date().toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric',
   });
 
-  const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
   const vehicleEntries = useMemo(
     () => entries.filter(e => e.vehicleId === activeVehicleId),
     [entries, activeVehicleId],
   );
-  const totalMiles = vehicleEntries.reduce((sum, e) => sum + e.miles, 0);
+  const todayEntries = useMemo(
+    () => vehicleEntries.filter(e => isSameLocalDay(e.loggedAt)),
+    [vehicleEntries],
+  );
+  const todayMiles = todayEntries.reduce((sum, e) => sum + e.miles, 0);
+  const lifetimeMiles = vehicleEntries.reduce((sum, e) => sum + e.miles, 0);
   const vehicleNameMap = useMemo(
     () => Object.fromEntries(vehicles.map(v => [v.id, v.nickname])),
     [vehicles],
@@ -44,7 +48,7 @@ export default function MilesScreen() {
 
   const pendingMiles = parseMilesInput(miles);
   const isTyping     = miles.length > 0;
-  const displayTotal = totalMiles + pendingMiles;
+  const displayToday = todayMiles + pendingMiles;
 
   const handleMilesChange     = (text: string) => setMiles(sanitizeMilesInput(text));
   const handleEditMilesChange = (text: string) => setEditMiles(sanitizeMilesInput(text));
@@ -103,7 +107,7 @@ export default function MilesScreen() {
       <View style={styles.header}>
         <View>
           <Text style={[styles.appName, { color: theme.text }]}>Track Moto {appIcon.emoji}</Text>
-          <Text style={[styles.date, { color: theme.muted }]}>{today}</Text>
+          <Text style={[styles.date, { color: theme.muted }]}>{todayLabel}</Text>
         </View>
         <View style={styles.headerActions}>
           <TouchableOpacity
@@ -121,23 +125,22 @@ export default function MilesScreen() {
         </View>
       </View>
 
-      <VehicleSelector
-        vehicles={vehicles}
-        activeVehicleId={activeVehicleId}
-        onSelectVehicle={setActiveVehicleId}
-        onAddVehicle={addVehicle}
-      />
+      <VehicleSelector />
 
       <View style={[styles.totalCard, { backgroundColor: theme.surface }]}>
         <Text style={[styles.totalLabel, { color: theme.muted }]}>
           Today's Miles{activeVehicle ? ` · ${activeVehicle.nickname}` : ''}
         </Text>
         <Text style={[styles.totalMiles, { color: theme.accent }]}>
-          {displayTotal.toFixed(1)}
+          {displayToday.toFixed(1)}
         </Text>
-        {isTyping && (
+        {isTyping ? (
           <Text style={[styles.totalHint, { color: theme.muted }]}>
-            {totalMiles.toFixed(1) + ' logged + ' + miles + ' mi'}
+            {todayMiles.toFixed(1) + ' today + ' + miles + ' mi'}
+          </Text>
+        ) : (
+          <Text style={[styles.totalHint, { color: theme.muted }]}>
+            {lifetimeMiles.toFixed(1)} mi all time
           </Text>
         )}
       </View>
@@ -185,7 +188,9 @@ export default function MilesScreen() {
           <View style={[styles.entry, { backgroundColor: theme.surface }]}>
             <TouchableOpacity onPress={() => openEdit(item)} style={styles.entryInfo}>
               <Text style={[styles.entryMiles, { color: theme.text }]}>{item.miles} mi</Text>
-              <Text style={[styles.entryTime,  { color: theme.muted }]}>{item.date}</Text>
+              <Text style={[styles.entryTime,  { color: theme.muted }]}>
+                {formatMileEntryWhen(item.loggedAt)}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.deleteBtn, { backgroundColor: theme.accent }]}

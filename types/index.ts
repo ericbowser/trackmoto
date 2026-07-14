@@ -2,7 +2,13 @@ export type MileEntry = {
   id: string;
   vehicleId: string;
   miles: number;
-  date: string;
+  /** ISO timestamp when the miles were logged */
+  loggedAt: string;
+  /**
+   * @deprecated Legacy display string (often time-only). Prefer `loggedAt`.
+   * Kept optional so older saved entries still load.
+   */
+  date?: string;
 };
 
 export type ReceiptKind = 'expense' | 'document';

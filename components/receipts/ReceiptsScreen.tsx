@@ -39,12 +39,11 @@ function receiptIsImage(item: Receipt): boolean {
 export default function ReceiptsScreen() {
   const { theme } = useTheme();
   const { receipts, addReceipt, deleteReceipt, getLatestByCategory } = useReceipts();
-  const { vehicles, addVehicle, DEFAULT_VEHICLE_ID } = useVehicles();
+  const { activeVehicleId, activeVehicle } = useVehicles();
 
   const [filter, setFilter] = useState<Filter>('all');
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<PickedDocument | null>(null);
-  const [activeVehicleId, setActiveVehicleId] = useState<string>(DEFAULT_VEHICLE_ID);
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<string>(CATEGORY_GROUPS[0].categories[0]);
   const [issuer, setIssuer] = useState('');
@@ -277,12 +276,7 @@ export default function ReceiptsScreen() {
 
   const ListHeader = () => (
     <>
-      <VehicleSelector
-        vehicles={vehicles}
-        activeVehicleId={activeVehicleId}
-        onSelectVehicle={setActiveVehicleId}
-        onAddVehicle={addVehicle}
-      />
+      <VehicleSelector />
 
       <View style={[styles.quickAccessSection, { backgroundColor: theme.surface }]}>
         <Text style={[styles.quickAccessTitle, { color: theme.text }]}>Roadside quick access</Text>
@@ -382,7 +376,7 @@ export default function ReceiptsScreen() {
             <View style={[styles.modalCard, { backgroundColor: theme.surface }]}>
               <Text style={[styles.modalTitle, { color: theme.text }]}>Add document</Text>
               <Text style={[styles.modalSubTitle, { color: theme.muted }]}>
-                Vehicle: {vehicles.find(v => v.id === activeVehicleId)?.nickname ?? 'Unknown'}
+                Vehicle: {activeVehicle?.nickname ?? 'Unknown'}
               </Text>
 
               <TouchableOpacity

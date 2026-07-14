@@ -2,6 +2,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { Share } from 'react-native';
 import type { MileEntry } from '@/types';
+import { formatMileCsvWhen } from '@/utils/dates';
 
 function escapeCsv(value: string): string {
   const needsQuotes = /[",\n]/.test(value);
@@ -13,10 +14,10 @@ export function milesToCsv(
   entries: MileEntry[],
   vehicleNames: Record<string, string> = {},
 ): string {
-  const lines: string[] = ['vehicle,date,miles'];
+  const lines: string[] = ['vehicle,logged_at,miles'];
   for (const e of entries) {
     const vehicle = vehicleNames[e.vehicleId] ?? e.vehicleId;
-    lines.push([escapeCsv(vehicle), escapeCsv(e.date), String(e.miles)].join(','));
+    lines.push([escapeCsv(vehicle), escapeCsv(formatMileCsvWhen(e.loggedAt)), String(e.miles)].join(','));
   }
   return lines.join('\n') + '\n';
 }
