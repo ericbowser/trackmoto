@@ -1,3 +1,6 @@
+/** Anchor day for legacy time-only mile entries (keeps them out of "today"). */
+export const LEGACY_MILE_ANCHOR_DATE = new Date(2000, 0, 1);
+
 /** Local calendar day key: YYYY-MM-DD */
 export function toLocalDateKey(date: Date = new Date()): string {
   const y = date.getFullYear();

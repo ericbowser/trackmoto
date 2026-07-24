@@ -8,7 +8,6 @@ import { useAppIcon } from '@/context/AppIconContext';
 import { useMiles } from '@/hooks/useMiles';
 import { useVehicles } from '@/hooks/useVehicles';
 import { sanitizeMilesInput, parseMilesInput } from '@/utils/input';
-import { openGoogleMaps } from '@/utils/maps';
 import { shareMilesCsv } from '@/utils/exportMiles';
 import { formatMileEntryWhen, isSameLocalDay } from '@/utils/dates';
 import ThemePicker from '@/components/ThemePicker';
@@ -81,14 +80,6 @@ export default function MilesScreen() {
     ]);
   };
 
-  const handleOpenMaps = async () => {
-    try {
-      await openGoogleMaps();
-    } catch {
-      Alert.alert('Could not open Maps', 'Install Google Maps or try again.');
-    }
-  };
-
   const handleExportMiles = async () => {
     if (vehicleEntries.length === 0) {
       Alert.alert('Nothing to export', 'Log at least one entry for this vehicle first.');
@@ -101,13 +92,21 @@ export default function MilesScreen() {
     }
   };
 
+  const todayHint = isTyping
+    ? `${todayMiles.toFixed(1)} logged today + ${miles} mi`
+    : todayMiles > 0
+      ? `${lifetimeMiles.toFixed(1)} mi all time`
+      : 'No miles logged today';
+
   return (
     <View style={[styles.screen, { backgroundColor: theme.bg }]}>
 
       <View style={styles.header}>
-        <View>
-          <Text style={[styles.appName, { color: theme.text }]}>Track Moto {appIcon.emoji}</Text>
-          <Text style={[styles.date, { color: theme.muted }]}>{todayLabel}</Text>
+        <View style={styles.headerText}>
+          <Text style={[styles.appName, { color: theme.text }]} numberOfLines={1}>
+            Track Moto {appIcon.emoji}
+          </Text>
+          <Text style={[styles.date, { color: theme.muted }]} numberOfLines={1}>{todayLabel}</Text>
         </View>
         <View style={styles.headerActions}>
           <TouchableOpacity
@@ -134,56 +133,15 @@ export default function MilesScreen() {
         <Text style={[styles.totalMiles, { color: theme.accent }]}>
           {displayToday.toFixed(1)}
         </Text>
-        {isTyping ? (
-          <Text style={[styles.totalHint, { color: theme.muted }]}>
-            {todayMiles.toFixed(1) + ' today + ' + miles + ' mi'}
-          </Text>
-        ) : (
-          <Text style={[styles.totalHint, { color: theme.muted }]}>
-            {lifetimeMiles.toFixed(1)} mi all time
-          </Text>
-        )}
-      </View>
-
-      <TouchableOpacity
-        style={[styles.mapsBtn, { backgroundColor: theme.surface }]}
-        onPress={handleOpenMaps}
-        activeOpacity={0.8}>
-        <Text style={styles.mapsBtnIcon}>🗺️</Text>
-        <View style={styles.mapsBtnText}>
-          <Text style={[styles.mapsBtnTitle, { color: theme.text }]}>Open Google Maps</Text>
-          <Text style={[styles.mapsBtnHint, { color: theme.muted }]}>Navigation & directions</Text>
-        </View>
-        <Text style={[styles.mapsBtnChevron, { color: theme.muted }]}>›</Text>
-      </TouchableOpacity>
-
-      <View style={styles.inputRow}>
-        <View style={[
-          styles.inputWrap,
-          { backgroundColor: theme.surface, borderColor: isTyping ? theme.accent : 'transparent' },
-        ]}>
-          <Text style={[styles.inputLive, { color: miles ? theme.text : theme.muted }]}>
-            {miles ? (miles + ' mi') : '0 mi'}
-          </Text>
-          <TextInput
-            style={[styles.input, { color: theme.muted }]}
-            placeholder="Type miles..."
-            placeholderTextColor={theme.muted}
-            keyboardType="decimal-pad"
-            value={miles}
-            onChangeText={handleMilesChange}
-            maxLength={8}
-          />
-        </View>
-        <TouchableOpacity style={[styles.logBtn, { backgroundColor: theme.accent }]} onPress={logMiles}>
-          <Text style={styles.logBtnText}>Log</Text>
-        </TouchableOpacity>
+        <Text style={[styles.totalHint, { color: theme.muted }]}>{todayHint}</Text>
       </View>
 
       <FlatList
-        data={vehicleEntries}
+        style={styles.list}
+        data={todayEntries}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.listContent}
+        keyboardShouldPersistTaps="handled"
         renderItem={({ item }) => (
           <View style={[styles.entry, { backgroundColor: theme.surface }]}>
             <TouchableOpacity onPress={() => openEdit(item)} style={styles.entryInfo}>
@@ -201,19 +159,33 @@ export default function MilesScreen() {
         )}
         ListEmptyComponent={
           <View style={[styles.emptyCard, { backgroundColor: theme.surface }]}>
-            <Text style={[styles.emptyTitle, { color: theme.text }]}>Log your first trip</Text>
+            <Text style={[styles.emptyTitle, { color: theme.text }]}>No trips logged today</Text>
             <Text style={[styles.emptyBody, { color: theme.muted }]}>
-              Type miles above, tap Log, and you’ll see your list here. You can tap an entry to edit it.
+              Enter miles below and tap Log. Older entries stay in your export.
             </Text>
-            <TouchableOpacity
-              style={[styles.emptySecondaryBtn, { backgroundColor: theme.bg }]}
-              onPress={handleOpenMaps}
-              activeOpacity={0.85}>
-              <Text style={[styles.emptySecondaryText, { color: theme.text }]}>Open Google Maps</Text>
-            </TouchableOpacity>
           </View>
         }
       />
+
+      <View style={styles.logBar}>
+        <View style={[
+          styles.inputWrap,
+          { backgroundColor: theme.surface, borderColor: isTyping ? theme.accent : 'transparent' },
+        ]}>
+          <TextInput
+            style={[styles.input, { color: theme.text }]}
+            placeholder="Miles"
+            placeholderTextColor={theme.muted}
+            keyboardType="decimal-pad"
+            value={miles}
+            onChangeText={handleMilesChange}
+            maxLength={8}
+          />
+        </View>
+        <TouchableOpacity style={[styles.logBtn, { backgroundColor: theme.accent }]} onPress={logMiles}>
+          <Text style={styles.logBtnText}>Log</Text>
+        </TouchableOpacity>
+      </View>
 
       <Modal visible={editModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
@@ -249,44 +221,47 @@ export default function MilesScreen() {
 
 const styles = StyleSheet.create({
   screen:        { flex: 1 },
-  header:        { padding: 24, paddingTop: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  headerActions: { flexDirection: 'row', gap: 10 },
-  appName:       { fontSize: 28, fontWeight: 'bold' },
-  date:          { fontSize: 14, marginTop: 4 },
-  iconBtn:       { width: 42, height: 42, borderRadius: 21, justifyContent: 'center', alignItems: 'center' },
-  iconBtnIcon:   { fontSize: 20 },
-  totalCard:     { margin: 16, padding: 24, borderRadius: 16, alignItems: 'center' },
-  totalLabel:    { fontSize: 14 },
-  totalMiles:    { fontSize: 64, fontWeight: 'bold' },
-  totalHint:     { fontSize: 13, marginTop: 8 },
-  mapsBtn:       {
-    flexDirection: 'row', alignItems: 'center',
-    marginHorizontal: 16, marginBottom: 12,
-    padding: 16, borderRadius: 12, gap: 12,
+  header:        {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
   },
-  mapsBtnIcon:     { fontSize: 28 },
-  mapsBtnText:     { flex: 1 },
-  mapsBtnTitle:    { fontSize: 16, fontWeight: '700' },
-  mapsBtnHint:     { fontSize: 12, marginTop: 2 },
-  mapsBtnChevron:  { fontSize: 24, fontWeight: '300' },
-  inputRow:      { flexDirection: 'row', margin: 16, gap: 12 },
-  inputWrap:     { flex: 1, borderRadius: 12, borderWidth: 2, overflow: 'hidden' },
-  inputLive:     { fontSize: 28, fontWeight: 'bold', paddingHorizontal: 14, paddingTop: 12, paddingBottom: 4 },
-  input:         { paddingHorizontal: 14, paddingBottom: 12, fontSize: 14 },
-  logBtn:        { padding: 14, borderRadius: 12, justifyContent: 'center' },
-  logBtnText:    { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-  listContent:   { paddingBottom: 20 },
-  entry:         { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginBottom: 8, padding: 16, borderRadius: 12 },
+  headerText:    { flex: 1 },
+  headerActions: { flexDirection: 'row', gap: 8 },
+  appName:       { fontSize: 22, fontWeight: 'bold' },
+  date:          { fontSize: 13, marginTop: 2 },
+  iconBtn:       { width: 38, height: 38, borderRadius: 19, justifyContent: 'center', alignItems: 'center' },
+  iconBtnIcon:   { fontSize: 18 },
+  totalCard:     { marginHorizontal: 16, marginBottom: 8, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 14, alignItems: 'center' },
+  totalLabel:    { fontSize: 13 },
+  totalMiles:    { fontSize: 48, fontWeight: 'bold', lineHeight: 52 },
+  totalHint:     { fontSize: 12, marginTop: 4 },
+  list:          { flex: 1 },
+  listContent:   { paddingBottom: 8, flexGrow: 1 },
+  entry:         { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginBottom: 8, padding: 12, borderRadius: 12 },
   entryInfo:     { flex: 1 },
   entryMiles:    { fontSize: 16, fontWeight: '600' },
-  entryTime:     { fontSize: 14 },
+  entryTime:     { fontSize: 13, marginTop: 2 },
   deleteBtn:     { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
   deleteBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 13 },
-  emptyCard:     { marginHorizontal: 16, marginTop: 12, padding: 16, borderRadius: 14 },
-  emptyTitle:    { fontSize: 16, fontWeight: '800' },
-  emptyBody:     { marginTop: 6, fontSize: 13, lineHeight: 18 },
-  emptySecondaryBtn: { marginTop: 12, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
-  emptySecondaryText: { fontSize: 14, fontWeight: '700' },
+  emptyCard:     { marginHorizontal: 16, marginTop: 8, padding: 14, borderRadius: 12 },
+  emptyTitle:    { fontSize: 15, fontWeight: '800' },
+  emptyBody:     { marginTop: 4, fontSize: 13, lineHeight: 18 },
+  logBar:        {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    marginTop: 4,
+    marginBottom: 10,
+    gap: 10,
+  },
+  inputWrap:     { flex: 1, borderRadius: 12, borderWidth: 2, overflow: 'hidden' },
+  input:         { paddingHorizontal: 14, paddingVertical: 14, fontSize: 18, fontWeight: '600' },
+  logBtn:        { paddingHorizontal: 22, borderRadius: 12, justifyContent: 'center' },
+  logBtnText:    { color: '#fff', fontWeight: 'bold', fontSize: 16 },
   modalOverlay:  { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
   modalCard:     { borderRadius: 16, padding: 24, margin: 16 },
   modalTitle:    { fontSize: 20, fontWeight: 'bold', marginBottom: 16 },

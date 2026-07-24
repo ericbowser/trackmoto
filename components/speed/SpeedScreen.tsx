@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Linking, Alert } 
 import { useTheme } from '@/context/ThemeContext';
 import { useGpsSpeed } from '@/hooks/useGpsSpeed';
 import ThemePicker from '@/components/ThemePicker';
+import { openGoogleMaps } from '@/utils/maps';
 import { useState } from 'react';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -41,6 +42,14 @@ export default function SpeedScreen() {
     Linking.openSettings().catch(() => {
       Alert.alert('Cannot open settings', 'Please open Settings and allow location permission for Track Moto.');
     });
+  };
+
+  const handleOpenMaps = async () => {
+    try {
+      await openGoogleMaps();
+    } catch {
+      Alert.alert('Could not open Maps', 'Install Google Maps or try again.');
+    }
   };
 
   return (
@@ -161,6 +170,12 @@ export default function SpeedScreen() {
             onPress={resetSession}>
             <Text style={[styles.resetBtnText, { color: theme.muted }]}>Reset Session</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.mapsBtn, { backgroundColor: theme.surface }]}
+            onPress={handleOpenMaps}
+            accessibilityLabel="Open Google Maps">
+            <Text style={styles.mapsBtnIcon}>🗺️</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Primary action — full width, unmissable */}
@@ -234,4 +249,6 @@ const styles = StyleSheet.create({
   mainBtnText:   { fontSize: 18, fontWeight: 'bold' },
   resetBtn:      { flex: 1, padding: 10, borderRadius: 10, alignItems: 'center' },
   resetBtnText:  { fontSize: 13, fontWeight: '600' },
+  mapsBtn:       { width: 44, height: 44, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  mapsBtnIcon:   { fontSize: 20 },
 });

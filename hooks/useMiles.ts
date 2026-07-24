@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { MileEntry } from '@/types';
 import { STORAGE_KEYS } from '@/constants/app';
-import { parseLegacyTimeOntoDay } from '@/utils/dates';
+import { LEGACY_MILE_ANCHOR_DATE, parseLegacyTimeOntoDay } from '@/utils/dates';
 
 type RawMileEntry = Partial<MileEntry> & {
   id?: string;
@@ -15,12 +15,17 @@ type RawMileEntry = Partial<MileEntry> & {
 function normalizeEntry(raw: RawMileEntry): MileEntry | null {
   if (!raw.id || typeof raw.miles !== 'number' || Number.isNaN(raw.miles)) return null;
 
+  const legacyTimeLabel = raw.date?.trim();
+  const hasLegacyTimeLabel = Boolean(
+    legacyTimeLabel && !/\d{4}-\d{2}-\d{2}|T/.test(legacyTimeLabel),
+  );
+
   let loggedAt = raw.loggedAt;
-  if (!loggedAt || Number.isNaN(new Date(loggedAt).getTime())) {
-    // Legacy entries only stored a time label — attach it to today so they
-    // stop polluting "today" forever after midnight.
-    const fromLegacy = raw.date ? parseLegacyTimeOntoDay(raw.date) : null;
-    loggedAt = (fromLegacy ?? new Date()).toISOString();
+  if (hasLegacyTimeLabel) {
+    const fromLegacy = parseLegacyTimeOntoDay(legacyTimeLabel!, LEGACY_MILE_ANCHOR_DATE);
+    loggedAt = (fromLegacy ?? LEGACY_MILE_ANCHOR_DATE).toISOString();
+  } else if (!loggedAt || Number.isNaN(new Date(loggedAt).getTime())) {
+    loggedAt = new Date().toISOString();
   }
 
   return {
