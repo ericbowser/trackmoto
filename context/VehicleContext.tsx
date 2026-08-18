@@ -22,8 +22,7 @@ function normalizeVehicles(raw: unknown): Vehicle[] {
     }))
     .filter(v => v.id && v.nickname);
 
-  const hasDefault = parsed.some(v => v.id === DEFAULT_VEHICLE.id);
-  return hasDefault ? parsed : [DEFAULT_VEHICLE, ...parsed];
+  return parsed.length > 0 ? parsed : [DEFAULT_VEHICLE];
 }
 
 type VehicleContextValue = {
@@ -61,7 +60,7 @@ export function VehicleProvider({ children }: { children: React.ReactNode }) {
 
         const preferred = savedActive && nextVehicles.some(v => v.id === savedActive)
           ? savedActive
-          : DEFAULT_VEHICLE_ID;
+          : nextVehicles[0].id;
         setActiveVehicleIdState(preferred);
       } catch (e) {
         console.error('VehicleProvider load:', e);
@@ -87,6 +86,12 @@ export function VehicleProvider({ children }: { children: React.ReactNode }) {
     );
   }, [activeVehicleId]);
 
+  useEffect(() => {
+    if (!vehiclesLoaded.current || vehicles.length === 0) return;
+    if (vehicles.some(v => v.id === activeVehicleId)) return;
+    setActiveVehicleIdState(vehicles[0].id);
+  }, [vehicles, activeVehicleId]);
+
   const setActiveVehicleId = useCallback((id: string) => {
     setActiveVehicleIdState(prev => (prev === id ? prev : id));
   }, []);
@@ -104,9 +109,11 @@ export function VehicleProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const deleteVehicle = useCallback((id: string) => {
-    if (id === DEFAULT_VEHICLE_ID) return;
-    setVehicles(prev => prev.filter(v => v.id !== id));
-    setActiveVehicleIdState(prev => (prev === id ? DEFAULT_VEHICLE_ID : prev));
+    setVehicles(prev => {
+      if (prev.length <= 1) return prev;
+      const next = prev.filter(v => v.id !== id);
+      return next.length > 0 ? next : prev;
+    });
   }, []);
 
   const activeVehicle = useMemo(

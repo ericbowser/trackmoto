@@ -82,5 +82,9 @@ export function useMiles() {
     setEntries(prev => prev.filter(e => e.id !== id));
   };
 
-  return { entries, addEntry, updateEntry, deleteEntry };
+  const deleteEntriesForVehicle = (vehicleId: string) => {
+    setEntries(prev => prev.filter(e => e.vehicleId !== vehicleId));
+  };
+
+  return { entries, addEntry, updateEntry, deleteEntry, deleteEntriesForVehicle };
 }

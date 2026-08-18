@@ -17,8 +17,8 @@ import type { MileEntry } from '@/types';
 export default function MilesScreen() {
   const { theme } = useTheme();
   const { appIcon } = useAppIcon();
-  const { entries, addEntry, updateEntry, deleteEntry } = useMiles();
-  const { vehicles, activeVehicleId, activeVehicle } = useVehicles();
+  const { entries, addEntry, updateEntry, deleteEntry, deleteEntriesForVehicle } = useMiles();
+  const { vehicles, activeVehicleId, activeVehicle, deleteVehicle } = useVehicles();
 
   const [miles, setMiles] = useState('');
   const [editEntry, setEditEntry] = useState<MileEntry | null>(null);
@@ -92,6 +92,36 @@ export default function MilesScreen() {
     }
   };
 
+  const confirmRemoveVehicle = (vehicleId: string) => {
+    if (vehicles.length <= 1) {
+      Alert.alert('Keep one vehicle', 'Add another vehicle first if you want to remove this one.');
+      return;
+    }
+    const vehicle = vehicles.find(v => v.id === vehicleId);
+    if (!vehicle) return;
+
+    const entryCount = entries.filter(e => e.vehicleId === vehicleId).length;
+    const milesMessage = entryCount > 0
+      ? ` This also deletes ${entryCount} logged mile${entryCount === 1 ? '' : 's'}.`
+      : '';
+
+    Alert.alert(
+      'Remove vehicle',
+      `Remove "${vehicle.nickname}" from Track Moto?${milesMessage}`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () => {
+            deleteEntriesForVehicle(vehicleId);
+            deleteVehicle(vehicleId);
+          },
+        },
+      ],
+    );
+  };
+
   const todayHint = isTyping
     ? `${todayMiles.toFixed(1)} logged today + ${miles} mi`
     : todayMiles > 0
@@ -124,7 +154,7 @@ export default function MilesScreen() {
         </View>
       </View>
 
-      <VehicleSelector />
+      <VehicleSelector allowRemove onRemoveVehicle={confirmRemoveVehicle} />
 
       <View style={[styles.totalCard, { backgroundColor: theme.surface }]}>
         <Text style={[styles.totalLabel, { color: theme.muted }]}>

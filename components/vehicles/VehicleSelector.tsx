@@ -6,9 +6,20 @@ import {
 import { useTheme } from '@/context/ThemeContext';
 import { useVehicles } from '@/hooks/useVehicles';
 
-export default function VehicleSelector() {
+type Props = {
+  allowRemove?: boolean;
+  onRemoveVehicle?: (vehicleId: string) => void;
+};
+
+export default function VehicleSelector({ allowRemove = false, onRemoveVehicle }: Props) {
   const { theme } = useTheme();
-  const { vehicles, activeVehicleId, setActiveVehicleId, addVehicle } = useVehicles();
+  const {
+    vehicles,
+    activeVehicleId,
+    activeVehicle,
+    setActiveVehicleId,
+    addVehicle,
+  } = useVehicles();
   const [modalVisible, setModalVisible] = useState(false);
   const [newName, setNewName] = useState('');
 
@@ -20,10 +31,21 @@ export default function VehicleSelector() {
     setModalVisible(false);
   };
 
+  const canRemove = allowRemove && vehicles.length > 1 && Boolean(onRemoveVehicle);
+
   return (
     <>
       <View style={[styles.bar, { backgroundColor: theme.surface }]}>
-        <Text style={[styles.title, { color: theme.text }]}>Vehicle</Text>
+        <View style={styles.titleRow}>
+          <Text style={[styles.title, { color: theme.text }]}>Vehicle</Text>
+          {canRemove ? (
+            <TouchableOpacity
+              onPress={() => onRemoveVehicle!(activeVehicleId)}
+              accessibilityLabel={`Remove ${activeVehicle?.nickname ?? 'vehicle'}`}>
+              <Text style={[styles.removeText, { color: theme.accent }]}>Remove</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pills}>
           {vehicles.map(v => {
             const isActive = v.id === activeVehicleId;
@@ -79,7 +101,9 @@ export default function VehicleSelector() {
 
 const styles = StyleSheet.create({
   bar:       { marginHorizontal: 16, marginBottom: 12, padding: 16, borderRadius: 14 },
-  title:     { fontSize: 16, fontWeight: '700', marginBottom: 10 },
+  titleRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  title:     { fontSize: 16, fontWeight: '700' },
+  removeText:{ fontSize: 13, fontWeight: '700' },
   pills:     { gap: 8, paddingRight: 16 },
   pill:      { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
   pillText:  { fontSize: 13, fontWeight: '700' },
